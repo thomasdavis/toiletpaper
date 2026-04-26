@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PaperStatusBadge } from "@/components/paper-status-badge";
 import { ClaimCard } from "@/components/claim-card";
 import { DontoContextInfo } from "@/components/donto-context-info";
+import { DontoDetails } from "@/components/donto-details";
 import { VerdictSummary } from "@/components/verdict-summary";
 import { getHistory, getContexts } from "@/lib/donto";
 import {
@@ -127,6 +128,8 @@ export default async function PaperDetailPage({
             </Stack>
           )}
         </Stack>
+
+        <DontoDetails paperId={id} />
       </Stack>
     </Container>
   );

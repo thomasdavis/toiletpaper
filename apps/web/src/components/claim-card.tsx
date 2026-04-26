@@ -13,6 +13,7 @@ import {
 import type { simulations } from "@toiletpaper/db";
 import { getHistory } from "@/lib/donto";
 import { CollapsibleDetails } from "./collapsible-details";
+import { ClaimDontoInspect } from "./claim-donto-inspect";
 
 interface Claim {
   id: string;
@@ -189,9 +190,7 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
       </CardContent>
 
       {claim.dontoSubjectIri && (
-        <div className="border-t border-stone-100 px-5 py-2">
-          <Code>{claim.dontoSubjectIri}</Code>
-        </div>
+        <ClaimDontoInspect iri={claim.dontoSubjectIri} />
       )}
 
       {claim.simulations.length > 0 && (

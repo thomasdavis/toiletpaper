@@ -3,6 +3,121 @@ import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { getHistory } from "@/lib/donto";
+import { DONTOSRV_URL } from "@toiletpaper/donto-client";
+import {
+  assertArgument,
+  emitObligation,
+} from "@toiletpaper/donto-client/evidence";
+
+/** Assert simulation verdict quads into donto for a claim. */
+async function ingestVerdictToDonto(
+  dontoSubjectIri: string,
+  paperId: string,
+  verdict: string,
+  reason: string,
+  confidence: number,
+  measured?: number,
+  expected?: number,
+) {
+  const srvUrl = DONTOSRV_URL;
+  const context = `tp:paper:${paperId}:claims`;
+
+  try {
+    // 1. Assert verdict quad
+    await fetch(`${srvUrl}/assert`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        subject: dontoSubjectIri,
+        predicate: "tp:simulationVerdict",
+        object_lit: { v: verdict, dt: "xsd:string" },
+        context,
+      }),
+    });
+
+    // 2. Assert reason quad
+    await fetch(`${srvUrl}/assert`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        subject: dontoSubjectIri,
+        predicate: "tp:verdictReason",
+        object_lit: { v: reason, dt: "xsd:string" },
+        context,
+      }),
+    });
+
+    // 3. Assert measured/expected if available
+    if (measured != null) {
+      await fetch(`${srvUrl}/assert`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subject: dontoSubjectIri,
+          predicate: "tp:measuredValue",
+          object_lit: { v: String(measured), dt: "xsd:string" },
+          context,
+        }),
+      });
+    }
+    if (expected != null) {
+      await fetch(`${srvUrl}/assert`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subject: dontoSubjectIri,
+          predicate: "tp:expectedValue",
+          object_lit: { v: String(expected), dt: "xsd:string" },
+          context,
+        }),
+      });
+    }
+
+    // 4. Wire argument (supports/rebuts) via dontosrv HTTP
+    // Get the claim's claimText statement to use as argument target
+    const historyRes = await fetch(
+      `${srvUrl}/history/${encodeURIComponent(dontoSubjectIri)}`,
+      { headers: { accept: "application/json" } },
+    );
+    if (historyRes.ok) {
+      const history = (await historyRes.json()) as {
+        rows: Array<{ statement_id: string; predicate: string; tx_hi?: string | null }>;
+      };
+      const claimStmt = history.rows.find(
+        (r) => r.predicate === "tp:claimText" && !r.tx_hi,
+      );
+      const verdictStmt = history.rows.find(
+        (r) => r.predicate === "tp:simulationVerdict" && !r.tx_hi,
+      );
+
+      if (claimStmt && verdictStmt) {
+        const relation = verdict === "reproduced" ? "supports" : verdict === "contradicted" ? "rebuts" : null;
+        if (relation) {
+          const strength = verdict === "reproduced" ? Math.min(confidence, 1.0) : Math.min(confidence * 0.8, 1.0);
+          await assertArgument(srvUrl, {
+            source: verdictStmt.statement_id,
+            target: claimStmt.statement_id,
+            relation,
+            context,
+            strength,
+          });
+        }
+      }
+
+      // 7. Emit obligation for fragile claims
+      const claimStmtForObl = claimStmt;
+      if ((verdict === "fragile" || verdict === "numerically_fragile") && claimStmtForObl) {
+        await emitObligation(srvUrl, {
+          statement_id: claimStmtForObl.statement_id,
+          obligation_type: "needs-replication",
+          context,
+        });
+      }
+    }
+  } catch (_e) {
+    // dontosrv may be down — do not block the simulation pipeline
+  }
+}
 
 export async function POST(req: Request) {
   const body = (await req.json()) as { paper_id: string };
@@ -118,6 +233,10 @@ export async function POST(req: Request) {
           expected: v.deterministic.expected,
           llmAnalysis: v.llmAnalysis,
         });
+
+        if (claim.dontoSubjectIri) {
+          await ingestVerdictToDonto(claim.dontoSubjectIri, body.paper_id, v.verdict, v.llmAnalysis ?? "", v.confidence, v.deterministic.measured, v.deterministic.expected);
+        }
       }
     }
 
@@ -159,6 +278,10 @@ export async function POST(req: Request) {
           measured: v.deterministic.measured, expected: v.deterministic.expected,
           llmAnalysis: v.llmAnalysis,
         });
+
+        if (claim.dontoSubjectIri) {
+          await ingestVerdictToDonto(claim.dontoSubjectIri, body.paper_id, v.verdict, v.llmAnalysis ?? "", v.confidence, v.deterministic.measured, v.deterministic.expected);
+        }
       }
     }
 
@@ -197,6 +320,10 @@ export async function POST(req: Request) {
           measured: v.deterministic.measured, expected: v.deterministic.expected,
           llmAnalysis: v.llmAnalysis,
         });
+
+        if (claim.dontoSubjectIri) {
+          await ingestVerdictToDonto(claim.dontoSubjectIri, body.paper_id, v.verdict, v.llmAnalysis ?? "", v.confidence, v.deterministic.measured, v.deterministic.expected);
+        }
       }
     }
 
@@ -237,6 +364,10 @@ export async function POST(req: Request) {
             measured: v.fittedExponent ?? 0, expected: v.expectedExponent ?? 0,
             llmAnalysis: v.reason,
           });
+
+          if (match.dontoSubjectIri) {
+            await ingestVerdictToDonto(match.dontoSubjectIri, body.paper_id, v.verdict, v.reason, v.confidence, v.fittedExponent, v.expectedExponent);
+          }
         }
       }
     }
