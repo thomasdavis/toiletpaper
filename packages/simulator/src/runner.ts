@@ -9,7 +9,7 @@ import { checkDimensions } from "./algebraic";
 const exec = promisify(execFile);
 
 const WORK_DIR = join(process.cwd(), ".simulations");
-const TIMEOUT_MS = 120_000;
+const TIMEOUT_MS = 30_000;
 
 interface RawSimResult {
   baseline: { x: number[]; y: number[] };
