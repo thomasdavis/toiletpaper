@@ -78,16 +78,23 @@ export default async function PaperDetailPage({
             </Text>
           )}
 
-          {/* Prominent report button */}
-          {sims.length > 0 && (
-            <div className="mt-5">
+          {/* Action buttons */}
+          <div className="mt-5 flex items-center gap-3">
+            {sims.length > 0 && (
               <Link href={`/papers/${id}/report`}>
                 <button className="inline-flex h-12 items-center gap-2.5 rounded-md bg-[#4A6FA5] px-8 text-base font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
                   View Analysis Report
                 </button>
               </Link>
-            </div>
-          )}
+            )}
+            {paper.pdfUrl && (
+              <Link href={`/papers/${id}/annotated`}>
+                <button className="inline-flex h-12 items-center gap-2.5 rounded-md border border-[#E8E5DE] bg-white px-8 text-base font-medium text-[#3D3D3D] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
+                  Annotated View
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {paperCtx && (
