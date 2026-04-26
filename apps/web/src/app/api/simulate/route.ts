@@ -26,113 +26,236 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
   }
 
-  await db.update(papers)
-    .set({ status: "simulating", updatedAt: new Date() })
-    .where(eq(papers.id, paper.id));
+  await db.update(papers).set({ status: "simulating", updatedAt: new Date() }).where(eq(papers.id, paper.id));
 
   try {
-    const enrichedClaims = await Promise.all(
-      paperClaims.map(async (claim) => {
-        let category = "quantitative";
-        let evidence = "";
-        let predicate: string | undefined;
-        let value: string | undefined;
-        let unit: string | undefined;
-
-        if (claim.dontoSubjectIri) {
+    // Enrich claims with donto metadata
+    const enriched = await Promise.all(
+      paperClaims.map(async (c) => {
+        const data: Record<string, string> = {};
+        if (c.dontoSubjectIri) {
           try {
-            const history = await getHistory(claim.dontoSubjectIri);
-            if (history?.rows) {
-              for (const row of history.rows) {
-                const v = String(row.object_lit?.v ?? row.object_iri ?? "");
-                switch (row.predicate) {
-                  case "tp:category": category = v; break;
-                  case "tp:evidence": evidence = v; break;
-                  case "tp:predicate": predicate = v; break;
-                  case "tp:value": value = v; break;
-                  case "tp:unit": unit = v; break;
-                }
-              }
+            const h = await getHistory(c.dontoSubjectIri);
+            for (const r of h?.rows ?? []) {
+              const v = String(r.object_lit?.v ?? r.object_iri ?? "");
+              if (r.predicate.startsWith("tp:")) data[r.predicate.slice(3)] = v;
             }
-          } catch (_e) { /* donto may be down */ }
+          } catch (_e) { /* */ }
         }
-
-        return {
-          id: claim.id,
-          text: claim.text,
-          category,
-          confidence: claim.confidence ?? 0.5,
-          evidence,
-          predicate,
-          value,
-          unit,
-        };
+        return { ...c, ...data };
       }),
     );
 
-    const { runPipeline } = await import("@toiletpaper/simulator");
+    const verdicts: Array<{
+      claimId: string;
+      claim: string;
+      test: string;
+      verdict: string;
+      confidence: number;
+      measured: number;
+      expected: number;
+      llmAnalysis: string;
+    }> = [];
 
-    const result = await runPipeline({
-      claims: enrichedClaims,
-      paperAbstract: paper.abstract ?? "",
-      apiKey,
-    });
+    // ── MHD Simulations ─────────────────────────────────────────────
+    const {
+      harrisSheet, mriShearingBox, dynamoOnset,
+      integrate, totalEnergy, totalDivB,
+      measureReconnection, measureViscosity, measureDynamo,
+      judgeReconnection, judgeViscosity, judgeDynamo, addLlmAnalysis,
+      shearingBoxSource, meanFieldAlpha,
+    } = await import("@toiletpaper/simulator/mhd");
 
-    for (const verdict of result.verdicts) {
-      const matchingClaim = enrichedClaims.find((c) =>
-        c.text.slice(0, 40) === verdict.statement?.slice(0, 40),
-      );
+    // 1. Reconnection test
+    const reconnClaims = enriched.filter((c) =>
+      c.text.toLowerCase().includes("reconnect") && (c.text.includes("0.1") || c.text.includes("v_A")),
+    );
 
-      await db.insert(simulations).values({
-        claimId: matchingClaim?.id ?? paperClaims[0].id,
-        method: `tier-${verdict.tier}-${verdict.claimType}`,
-        result: {
-          fittedExponent: verdict.fittedExponent,
-          expectedExponent: verdict.expectedExponent,
-          dimensionalPass: verdict.dimensionalPass,
-          convergencePass: verdict.convergencePass,
-          conservationPass: verdict.conservationPass,
-          baselineReproduced: verdict.baselineReproduced,
-          proposedMatchesClaim: verdict.proposedMatchesClaim,
-          confidence: verdict.confidence,
-          reason: verdict.reason,
-        },
-        verdict: verdict.verdict === "reproduced"
-          ? "confirmed"
-          : verdict.verdict === "contradicted"
-            ? "refuted"
-            : "inconclusive",
-        metadata: {
-          plots: verdict.plots,
-          tier: verdict.tier,
-          claimType: verdict.claimType,
-        },
-      });
+    if (reconnClaims.length > 0) {
+      const etas = [1e-2, 5e-3, 2e-3, 1e-3];
+      const reconn: { S: number; rate: number }[] = [];
+      const eDrifts: number[] = [];
+      const divBs: number[] = [];
+
+      for (const eta of etas) {
+        const state = harrisSheet(128, 64, eta);
+        const E0 = totalEnergy(state);
+        const measurements: ReturnType<typeof measureReconnection>[] = [];
+
+        const final = integrate(state, {
+          cfl: 0.3, maxSteps: 2000, tMax: 5.0, boundaryCondition: "periodic",
+          onStep: (s: any) => { if (s.step % 50 === 0) measurements.push(measureReconnection(s)); },
+        });
+
+        measurements.push(measureReconnection(final));
+        const peak = Math.max(...measurements.map((m) => m.normalizedRate));
+        const dE = Math.abs(totalEnergy(final) - E0) / Math.abs(E0);
+
+        reconn.push({ S: 1 / eta, rate: peak });
+        eDrifts.push(dE);
+        divBs.push(totalDivB(final));
+      }
+
+      const rawData = reconn.map((r) => `S=${r.S} v_rec/v_A=${r.rate.toFixed(4)} SP=${(1/Math.sqrt(r.S)).toFixed(4)}`).join("\n");
+      const v = await addLlmAnalysis(judgeReconnection(reconn, eDrifts, divBs), rawData, apiKey);
+
+      for (const claim of reconnClaims) {
+        await db.insert(simulations).values({
+          claimId: claim.id,
+          method: "mhd-harris-sheet-reconnection",
+          result: { ...v.deterministic, llmAnalysis: v.llmAnalysis, rawData: reconn },
+          verdict: v.verdict === "reproduced" ? "confirmed" : v.verdict === "contradicted" ? "refuted" : "inconclusive",
+          metadata: { conservation: v.conservation, convergence: v.convergence },
+        });
+
+        verdicts.push({
+          claimId: claim.id,
+          claim: claim.text.slice(0, 100),
+          test: v.test,
+          verdict: v.verdict,
+          confidence: v.confidence,
+          measured: v.deterministic.measured,
+          expected: v.deterministic.expected,
+          llmAnalysis: v.llmAnalysis,
+        });
+      }
     }
 
-    await db.update(papers)
-      .set({ status: "done", updatedAt: new Date() })
-      .where(eq(papers.id, paper.id));
+    // 2. MRI viscosity test
+    const mriClaims = enriched.filter((c) =>
+      c.text.toLowerCase().includes("viscosity") || c.text.includes("α") || c.text.includes("alpha"),
+    );
 
-    return NextResponse.json({
-      summary: result.summary,
-      verdicts: result.verdicts.map((v) => ({
-        claim: v.statement?.slice(0, 100),
-        verdict: v.verdict,
-        reason: v.reason,
-        tier: v.tier,
-        confidence: v.confidence,
-      })),
-    });
+    if (mriClaims.length > 0) {
+      const betas = [25, 50, 100, 200, 400];
+      const mriData: { beta: number; alpha: number; stressRatio: number }[] = [];
+      const eDrifts: number[] = [];
+      const shearSrc = shearingBoxSource(1.0, 1.5);
+
+      for (const beta of betas) {
+        const state = mriShearingBox(64, 64, beta);
+        const E0 = totalEnergy(state);
+        const final = integrate(state, { cfl: 0.2, maxSteps: 2000, tMax: 20.0, boundaryCondition: "periodic", sources: shearSrc });
+        const m = measureViscosity(final);
+        mriData.push({ beta, alpha: m.alpha, stressRatio: m.stressRatio });
+        eDrifts.push(Math.abs(totalEnergy(final) - E0) / Math.abs(E0));
+      }
+
+      const rawData = mriData.map((m) => `beta=${m.beta} alpha=${m.alpha.toFixed(6)} predicted=${(2/(Math.PI*m.beta)).toFixed(6)} ratio=${m.stressRatio.toFixed(2)}`).join("\n");
+      const v = await addLlmAnalysis(judgeViscosity(mriData, eDrifts), rawData, apiKey);
+
+      for (const claim of mriClaims) {
+        await db.insert(simulations).values({
+          claimId: claim.id,
+          method: "mhd-mri-shearing-box",
+          result: { ...v.deterministic, llmAnalysis: v.llmAnalysis, rawData: mriData },
+          verdict: v.verdict === "reproduced" ? "confirmed" : v.verdict === "contradicted" ? "refuted" : "inconclusive",
+          metadata: { conservation: v.conservation },
+        });
+
+        verdicts.push({
+          claimId: claim.id, claim: claim.text.slice(0, 100), test: v.test,
+          verdict: v.verdict, confidence: v.confidence,
+          measured: v.deterministic.measured, expected: v.deterministic.expected,
+          llmAnalysis: v.llmAnalysis,
+        });
+      }
+    }
+
+    // 3. Dynamo onset test
+    const dynamoClaims = enriched.filter((c) =>
+      c.text.toLowerCase().includes("dynamo") || c.text.toLowerCase().includes("rm"),
+    );
+
+    if (dynamoClaims.length > 0) {
+      const Rms = [10, 20, 30, 50, 75, 100, 150];
+      const dynamoData: { Rm: number; magE: number; maxB: number }[] = [];
+
+      const alphaSrc = meanFieldAlpha(0.05);
+      for (const Rm of Rms) {
+        const state = dynamoOnset(64, 64, Rm);
+        const final = integrate(state, { cfl: 0.2, maxSteps: 1000, tMax: 10.0, boundaryCondition: "periodic", sources: alphaSrc });
+        const d = measureDynamo(final);
+        dynamoData.push({ Rm, magE: d.magneticEnergy, maxB: d.maxB });
+      }
+
+      const rawData = dynamoData.map((d) => `Rm=${d.Rm} magE=${d.magE.toExponential(3)} maxB=${d.maxB.toExponential(3)}`).join("\n");
+      const v = await addLlmAnalysis(judgeDynamo(dynamoData), rawData, apiKey);
+
+      for (const claim of dynamoClaims) {
+        await db.insert(simulations).values({
+          claimId: claim.id,
+          method: "mhd-dynamo-onset",
+          result: { ...v.deterministic, llmAnalysis: v.llmAnalysis, rawData: dynamoData },
+          verdict: v.verdict === "reproduced" ? "confirmed" : v.verdict === "contradicted" ? "refuted" : "inconclusive",
+          metadata: {},
+        });
+
+        verdicts.push({
+          claimId: claim.id, claim: claim.text.slice(0, 100), test: v.test,
+          verdict: v.verdict, confidence: v.confidence,
+          measured: v.deterministic.measured, expected: v.deterministic.expected,
+          llmAnalysis: v.llmAnalysis,
+        });
+      }
+    }
+
+    // 4. LLM-based triage + simulation for remaining claims
+    const testedClaimIds = new Set(verdicts.map((v) => v.claimId));
+    const remaining = enriched.filter((c) => !testedClaimIds.has(c.id));
+
+    if (remaining.length > 0) {
+      const { runPipeline } = await import("@toiletpaper/simulator");
+      const result = await runPipeline({
+        claims: remaining.map((c) => ({
+          text: c.text,
+          category: (c as any).category ?? "quantitative",
+          confidence: c.confidence ?? 0.5,
+          evidence: (c as any).evidence ?? "",
+          predicate: (c as any).predicate,
+          value: (c as any).value,
+          unit: (c as any).unit,
+        })),
+        paperAbstract: paper.abstract ?? "",
+        apiKey,
+      });
+
+      for (const v of result.verdicts) {
+        const match = remaining.find((c) => c.text.slice(0, 40) === v.statement?.slice(0, 40));
+        if (match) {
+          await db.insert(simulations).values({
+            claimId: match.id,
+            method: `tier-${v.tier}-${v.claimType}`,
+            result: { reason: v.reason, confidence: v.confidence },
+            verdict: v.verdict === "reproduced" ? "confirmed" : v.verdict === "contradicted" ? "refuted" : "inconclusive",
+            metadata: { tier: v.tier },
+          });
+
+          verdicts.push({
+            claimId: match.id, claim: v.statement?.slice(0, 100) ?? "",
+            test: `tier-${v.tier}`, verdict: v.verdict, confidence: v.confidence,
+            measured: v.fittedExponent ?? 0, expected: v.expectedExponent ?? 0,
+            llmAnalysis: v.reason,
+          });
+        }
+      }
+    }
+
+    await db.update(papers).set({ status: "done", updatedAt: new Date() }).where(eq(papers.id, paper.id));
+
+    const summary = {
+      total: verdicts.length,
+      reproduced: verdicts.filter((v) => v.verdict === "reproduced").length,
+      contradicted: verdicts.filter((v) => v.verdict === "contradicted").length,
+      fragile: verdicts.filter((v) => v.verdict === "fragile" || v.verdict === "numerically_fragile").length,
+      underdetermined: verdicts.filter((v) => v.verdict === "underdetermined").length,
+      mhdSimulations: verdicts.filter((v) => v.test.startsWith("Harris") || v.test.startsWith("MRI") || v.test.startsWith("Dynamo")).length,
+    };
+
+    return NextResponse.json({ summary, verdicts });
   } catch (e) {
     console.error("Simulation failed:", e);
-    await db.update(papers)
-      .set({ status: "error", updatedAt: new Date() })
-      .where(eq(papers.id, paper.id));
-
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Simulation failed" },
-      { status: 500 },
-    );
+    await db.update(papers).set({ status: "error", updatedAt: new Date() }).where(eq(papers.id, paper.id));
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Simulation failed" }, { status: 500 });
   }
 }
