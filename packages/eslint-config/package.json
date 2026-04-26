@@ -1,0 +1,19 @@
+{
+  "name": "@toiletpaper/eslint-config",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "main": "base.js",
+  "exports": {
+    ".": "./base.js",
+    "./next": "./next.js"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.17.0",
+    "typescript-eslint": "^8.20.0",
+    "globals": "^16.0.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.17.0"
+  }
+}

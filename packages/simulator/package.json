@@ -1,0 +1,22 @@
+{
+  "name": "@toiletpaper/simulator",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo '(source-only package)'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "openai": "^4.86.0"
+  },
+  "devDependencies": {
+    "@toiletpaper/typescript-config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

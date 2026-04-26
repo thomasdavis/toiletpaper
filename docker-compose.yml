@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: toiletpaper-pg
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: toiletpaper
+      POSTGRES_PASSWORD: toiletpaper
+      POSTGRES_DB: toiletpaper
+    volumes:
+      - tp-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toiletpaper -d toiletpaper"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  donto-postgres:
+    image: postgres:16
+    container_name: toiletpaper-donto-pg
+    ports:
+      - "55433:5432"
+    environment:
+      POSTGRES_USER: donto
+      POSTGRES_PASSWORD: donto
+      POSTGRES_DB: donto
+    volumes:
+      - tp-donto-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U donto -d donto"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tp-pg-data:
+  tp-donto-pg-data:

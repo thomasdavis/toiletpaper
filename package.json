@@ -1,0 +1,27 @@
+{
+  "name": "toiletpaper",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Upload papers, extract claims, simulate physics, verify truth.",
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "vitest run --config vitest.integration.ts",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "turbo run db:generate",
+    "db:push": "turbo run db:push"
+  },
+  "devDependencies": {
+    "pdfkit": "^0.18.0",
+    "turbo": "^2.9.6",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.1"
+  }
+}
