@@ -13,31 +13,29 @@ export const StatCard = forwardRef<HTMLDivElement, StatCardProps>(
     <div
       ref={ref}
       className={cn(
-        "rounded-[4px] border border-[var(--color-rule)] bg-white p-4 shadow-[var(--shadow-subtle)]",
+        "rounded-lg border border-[#E8E5DE] bg-white p-5 shadow-sm",
         className,
       )}
       {...props}
     >
-      <span className="block font-[var(--font-sans)] text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">
+      <span className="block text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">
         {label}
       </span>
-      <div className="mt-1 flex items-baseline gap-1.5">
-        <span className="font-[var(--font-mono)] text-[30px] font-bold leading-tight text-[var(--color-ink)]">
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="font-mono text-3xl font-bold tracking-tight text-[#1A1A1A]">
           {value}
         </span>
         {unit && (
-          <span className="font-[var(--font-sans)] text-sm text-[var(--color-ink-muted)]">
-            {unit}
-          </span>
+          <span className="text-sm text-[#9B9B9B]">{unit}</span>
         )}
       </div>
       {trend && (
         <span
           className={cn(
-            "mt-1 inline-flex items-center gap-1 font-[var(--font-mono)] text-xs",
-            trend.direction === "up" && "text-[var(--color-success)]",
-            trend.direction === "down" && "text-[var(--color-error)]",
-            trend.direction === "flat" && "text-[var(--color-ink-muted)]",
+            "mt-2 inline-flex items-center gap-1 font-mono text-xs font-medium",
+            trend.direction === "up" && "text-[#2D6A4F]",
+            trend.direction === "down" && "text-[#9B2226]",
+            trend.direction === "flat" && "text-[#9B9B9B]",
           )}
         >
           {trend.direction === "up" && "↑"}

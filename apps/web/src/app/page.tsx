@@ -12,13 +12,8 @@ import {
   Container,
   Heading,
   Text,
-  Stack,
   StatCard,
-  Card,
-  CardContent,
-  Label,
   Button,
-  Badge,
 } from "@toiletpaper/ui";
 
 export default async function DashboardPage() {
@@ -54,15 +49,15 @@ export default async function DashboardPage() {
 
   return (
     <Container>
-      <Stack gap={8}>
+      <div className="space-y-10 py-4">
         <div>
           <Heading level={1}>Dashboard</Heading>
-          <Text color="muted" className="mt-1">
+          <Text color="muted" className="mt-2">
             Upload papers, extract claims, simulate physics, verify truth.
           </Text>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-3">
           <Link href="/papers">
             <StatCard label="Papers" value={stats.papers} />
           </Link>
@@ -71,54 +66,55 @@ export default async function DashboardPage() {
         </div>
 
         <div>
-          <Heading level={5} className="mb-3">Donto Knowledge Graph</Heading>
-          <div className="grid gap-4 sm:grid-cols-4">
-            <StatCard
-              label="Status"
-              value={healthy ? "Online" : "Offline"}
-              className={healthy ? "text-green-600" : "text-red-600"}
-            />
-            <StatCard label="Statements" value={totalDontoStatements} />
+          <Heading level={4} className="mb-4">Donto Knowledge Graph</Heading>
+          <div className="grid gap-5 sm:grid-cols-4">
+            <div className={`rounded-lg border p-5 shadow-sm ${healthy ? "border-[#2D6A4F]/30 bg-[#D4EDE1]/30" : "border-[#9B2226]/30 bg-[#F5D5D6]/30"}`}>
+              <span className="block text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">Status</span>
+              <span className={`mt-2 block font-mono text-3xl font-bold tracking-tight ${healthy ? "text-[#2D6A4F]" : "text-[#9B2226]"}`}>
+                {healthy ? "Online" : "Offline"}
+              </span>
+            </div>
+            <StatCard label="Statements" value={totalDontoStatements.toLocaleString()} />
             <StatCard label="Subjects" value={dontoSubjects} />
-            <StatCard
-              label="Candidate Contexts"
-              value={candidateCtxs.length}
-            />
+            <StatCard label="Candidate Contexts" value={candidateCtxs.length} />
           </div>
         </div>
 
         {totalObligations > 0 && (
           <div>
-            <Heading level={5} className="mb-3">Proof Obligations</Heading>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <Heading level={4} className="mb-4">Proof Obligations</Heading>
+            <div className="grid gap-5 sm:grid-cols-3">
               {obligations.map((o) => (
-                <Card key={`${o.obligation_type}-${o.status}`}>
-                  <CardContent className="p-4">
-                    <Label>{o.obligation_type}</Label>
-                    <Stack direction="horizontal" gap={2} align="baseline" className="mt-1">
-                      <Text size="xl" weight="bold">{o.count}</Text>
-                      <Badge
-                        variant={o.status === "open" ? "warning" : "success"}
-                      >
-                        {o.status}
-                      </Badge>
-                    </Stack>
-                  </CardContent>
-                </Card>
+                <div
+                  key={`${o.obligation_type}-${o.status}`}
+                  className="rounded-lg border border-[#E8E5DE] bg-white p-5 shadow-sm"
+                >
+                  <span className="block text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">
+                    {o.obligation_type.replace(/-/g, " ")}
+                  </span>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <span className="font-mono text-3xl font-bold tracking-tight text-[#1A1A1A]">
+                      {o.count}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${o.status === "open" ? "bg-[#F5ECD4] text-[#B07D2B]" : "bg-[#D4EDE1] text-[#2D6A4F]"}`}>
+                      {o.status}
+                    </span>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         )}
 
-        <Stack direction="horizontal" gap={3}>
+        <div className="flex gap-4 pt-2">
           <Link href="/upload">
-            <Button>Upload a paper</Button>
+            <Button size="lg">Upload a paper</Button>
           </Link>
           <Link href="/papers">
-            <Button variant="secondary">Browse papers</Button>
+            <Button variant="secondary" size="lg">Browse papers</Button>
           </Link>
-        </Stack>
-      </Stack>
+        </div>
+      </div>
     </Container>
   );
 }
