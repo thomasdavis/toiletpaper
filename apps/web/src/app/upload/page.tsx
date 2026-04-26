@@ -1,14 +1,21 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dropzone } from "@toiletpaper/ui";
+import {
+  Container,
+  Heading,
+  Text,
+  Stack,
+  FileUpload,
+  Spinner,
+  Alert,
+} from "@toiletpaper/ui";
 
 type UploadState = "idle" | "uploading" | "extracting" | "done" | "error";
 
 export default function UploadPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +54,7 @@ export default function UploadPage() {
     [router],
   );
 
-  const handleDrop = useCallback(
+  const handleFiles = useCallback(
     (files: File[]) => {
       const pdf = files[0];
       if (pdf) upload(pdf);
@@ -55,82 +62,52 @@ export default function UploadPage() {
     [upload],
   );
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) upload(file);
-    },
-    [upload],
-  );
-
   const busy = state === "uploading" || state === "extracting";
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Upload a paper</h1>
+    <Container size="md">
+      <Stack gap={6}>
+        <Heading level={2}>Upload a paper</Heading>
 
-      <Dropzone
-        onDrop={handleDrop}
-        className="cursor-pointer"
-      >
-        <div className="text-center">
-          {state === "uploading" && (
-            <p className="text-sm text-blue-700">Uploading PDF...</p>
-          )}
-          {state === "extracting" && (
-            <>
-              <Spinner />
-              <p className="mt-2 text-sm font-medium text-blue-700">
-                Extracting claims from paper...
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                Parsing PDF, sending to GPT-4o, ingesting into donto
-              </p>
-            </>
-          )}
-          {state === "done" && (
-            <p className="text-sm text-green-700">
-              Done! Redirecting to paper...
-            </p>
-          )}
-          {(state === "idle" || state === "error") && (
-            <>
-              <p className="text-sm font-medium">
-                Drag &amp; drop a PDF or Markdown file
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                Claims extracted via GPT-4o and ingested into donto
-                automatically
-              </p>
-            </>
-          )}
-        </div>
-      </Dropzone>
+        {state === "extracting" && (
+          <Stack gap={2} align="center">
+            <Spinner size="lg" />
+            <Text size="sm" weight="medium" color="primary">
+              Extracting claims from paper...
+            </Text>
+            <Text size="xs" color="muted">
+              Parsing PDF, sending to GPT-4o, ingesting into donto
+            </Text>
+          </Stack>
+        )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf,.md,.markdown,text/markdown"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+        {state === "uploading" && (
+          <Stack gap={2} align="center">
+            <Spinner size="lg" />
+            <Text size="sm" color="primary">Uploading PDF...</Text>
+          </Stack>
+        )}
 
-      <button
-        type="button"
-        className="text-sm text-blue-700 underline disabled:opacity-50"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={busy}
-      >
-        Choose file from disk
-      </button>
+        {state === "done" && (
+          <Alert variant="success">
+            Done! Redirecting to paper...
+          </Alert>
+        )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
-  );
-}
+        {(state === "idle" || state === "error") && (
+          <FileUpload
+            onFiles={handleFiles}
+            accept="application/pdf,.md,.markdown,text/markdown"
+            label="Drag & drop a PDF or Markdown file"
+            hint="Claims extracted via GPT-4o and ingested into donto automatically"
+            disabled={busy}
+          />
+        )}
 
-function Spinner() {
-  return (
-    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-stone-200 border-t-blue-700" />
+        {error && (
+          <Alert variant="error">{error}</Alert>
+        )}
+      </Stack>
+    </Container>
   );
 }

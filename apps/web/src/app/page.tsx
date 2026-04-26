@@ -8,6 +8,18 @@ import {
   getObligationSummary,
   getSubjects,
 } from "@/lib/donto";
+import {
+  Container,
+  Heading,
+  Text,
+  Stack,
+  StatCard,
+  Card,
+  CardContent,
+  Label,
+  Button,
+  Badge,
+} from "@toiletpaper/ui";
 
 export default async function DashboardPage() {
   let stats = { papers: 0, claims: 0, simulations: 0 };
@@ -41,101 +53,72 @@ export default async function DashboardPage() {
   const dontoSubjects = subData?.subjects?.length ?? 0;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-muted">
-          Upload papers, extract claims, simulate physics, verify truth.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Papers" value={stats.papers} href="/papers" />
-        <StatCard label="Claims Extracted" value={stats.claims} />
-        <StatCard label="Simulations" value={stats.simulations} />
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">Donto Knowledge Graph</h2>
-        <div className="grid gap-4 sm:grid-cols-4">
-          <StatCard
-            label="Status"
-            value={healthy ? "Online" : "Offline"}
-            accent={healthy ? "green" : "red"}
-          />
-          <StatCard label="Statements" value={totalDontoStatements} />
-          <StatCard label="Subjects" value={dontoSubjects} />
-          <StatCard
-            label="Candidate Contexts"
-            value={candidateCtxs.length}
-          />
-        </div>
-      </div>
-
-      {totalObligations > 0 && (
+    <Container>
+      <Stack gap={8}>
         <div>
-          <h2 className="mb-3 text-lg font-semibold">Proof Obligations</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {obligations.map((o) => (
-              <div
-                key={`${o.obligation_type}-${o.status}`}
-                className="rounded-lg border border-stone-200 bg-white p-4"
-              >
-                <p className="text-xs text-muted">{o.obligation_type}</p>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-xl font-bold">{o.count}</span>
-                  <span
-                    className={`text-xs font-medium ${o.status === "open" ? "text-amber-600" : "text-green-600"}`}
-                  >
-                    {o.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+          <Heading level={1}>Dashboard</Heading>
+          <Text color="muted" className="mt-1">
+            Upload papers, extract claims, simulate physics, verify truth.
+          </Text>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Link href="/papers">
+            <StatCard label="Papers" value={stats.papers} />
+          </Link>
+          <StatCard label="Claims Extracted" value={stats.claims} />
+          <StatCard label="Simulations" value={stats.simulations} />
+        </div>
+
+        <div>
+          <Heading level={5} className="mb-3">Donto Knowledge Graph</Heading>
+          <div className="grid gap-4 sm:grid-cols-4">
+            <StatCard
+              label="Status"
+              value={healthy ? "Online" : "Offline"}
+              className={healthy ? "text-green-600" : "text-red-600"}
+            />
+            <StatCard label="Statements" value={totalDontoStatements} />
+            <StatCard label="Subjects" value={dontoSubjects} />
+            <StatCard
+              label="Candidate Contexts"
+              value={candidateCtxs.length}
+            />
           </div>
         </div>
-      )}
 
-      <div className="flex gap-3">
-        <Link
-          href="/upload"
-          className="inline-flex h-10 items-center rounded-md bg-blue-700 px-4 text-sm font-medium text-white hover:bg-blue-800"
-        >
-          Upload a paper
-        </Link>
-        <Link
-          href="/papers"
-          className="inline-flex h-10 items-center rounded-md border border-stone-200 px-4 text-sm font-medium hover:bg-stone-50"
-        >
-          Browse papers
-        </Link>
-      </div>
-    </div>
-  );
-}
+        {totalObligations > 0 && (
+          <div>
+            <Heading level={5} className="mb-3">Proof Obligations</Heading>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {obligations.map((o) => (
+                <Card key={`${o.obligation_type}-${o.status}`}>
+                  <CardContent className="p-4">
+                    <Label>{o.obligation_type}</Label>
+                    <Stack direction="horizontal" gap={2} align="baseline" className="mt-1">
+                      <Text size="xl" weight="bold">{o.count}</Text>
+                      <Badge
+                        variant={o.status === "open" ? "warning" : "success"}
+                      >
+                        {o.status}
+                      </Badge>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
-function StatCard({
-  label,
-  value,
-  href,
-  accent,
-}: {
-  label: string;
-  value: number | string;
-  href?: string;
-  accent?: "green" | "red";
-}) {
-  const accentColor =
-    accent === "green"
-      ? "text-green-600"
-      : accent === "red"
-        ? "text-red-600"
-        : "";
-  const inner = (
-    <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
-      <p className="text-sm text-muted">{label}</p>
-      <p className={`mt-1 text-3xl font-bold ${accentColor}`}>{value}</p>
-    </div>
+        <Stack direction="horizontal" gap={3}>
+          <Link href="/upload">
+            <Button>Upload a paper</Button>
+          </Link>
+          <Link href="/papers">
+            <Button variant="secondary">Browse papers</Button>
+          </Link>
+        </Stack>
+      </Stack>
+    </Container>
   );
-  return href ? <Link href={href}>{inner}</Link> : inner;
 }

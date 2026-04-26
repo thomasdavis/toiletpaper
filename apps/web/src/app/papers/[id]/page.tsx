@@ -6,6 +6,13 @@ import { PaperStatusBadge } from "@/components/paper-status-badge";
 import { ClaimCard } from "@/components/claim-card";
 import { DontoContextInfo } from "@/components/donto-context-info";
 import { getHistory, getContexts } from "@/lib/donto";
+import {
+  Container,
+  Heading,
+  Text,
+  Stack,
+  EmptyState,
+} from "@toiletpaper/ui";
 
 export default async function PaperDetailPage({
   params,
@@ -51,45 +58,52 @@ export default async function PaperDetailPage({
   }));
 
   return (
-    <div className="space-y-8">
-      <div>
-        <div className="flex items-start gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{paper.title}</h1>
-          <PaperStatusBadge status={paper.status} />
+    <Container>
+      <Stack gap={8}>
+        <div>
+          <Stack direction="horizontal" align="start" gap={3}>
+            <Heading level={2}>{paper.title}</Heading>
+            <PaperStatusBadge status={paper.status} />
+          </Stack>
+          {paper.authors && paper.authors.length > 0 && (
+            <Text color="muted" className="mt-1">
+              {paper.authors.join(", ")}
+            </Text>
+          )}
+          {paper.abstract && (
+            <Text size="sm" color="light" leading="relaxed" className="mt-4">
+              {paper.abstract}
+            </Text>
+          )}
         </div>
-        {paper.authors && paper.authors.length > 0 && (
-          <p className="mt-1 text-muted">{paper.authors.join(", ")}</p>
-        )}
-        {paper.abstract && (
-          <p className="mt-4 text-sm leading-relaxed text-stone-600">
-            {paper.abstract}
-          </p>
-        )}
-      </div>
 
-      {paperCtx && (
-        <DontoContextInfo
-          contextIri={claimsCtxIri}
-          kind={paperCtx.kind}
-          statementCount={paperCtx.count}
-          dontoHistory={dontoHistory}
-        />
-      )}
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">
-          Claims ({paperClaims.length})
-        </h2>
-        {claimsWithSims.length === 0 ? (
-          <p className="text-sm text-muted">No claims extracted yet.</p>
-        ) : (
-          <div className="space-y-4">
-            {claimsWithSims.map((claim) => (
-              <ClaimCard key={claim.id} claim={claim} />
-            ))}
-          </div>
+        {paperCtx && (
+          <DontoContextInfo
+            contextIri={claimsCtxIri}
+            kind={paperCtx.kind}
+            statementCount={paperCtx.count}
+            dontoHistory={dontoHistory}
+          />
         )}
-      </div>
-    </div>
+
+        <Stack gap={4}>
+          <Heading level={5}>
+            Claims ({paperClaims.length})
+          </Heading>
+          {claimsWithSims.length === 0 ? (
+            <EmptyState
+              title="No claims extracted yet"
+              description="Claims will appear here once extraction completes."
+            />
+          ) : (
+            <Stack gap={4}>
+              {claimsWithSims.map((claim) => (
+                <ClaimCard key={claim.id} claim={claim} />
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </Stack>
+    </Container>
   );
 }

@@ -1,4 +1,15 @@
-import { Badge } from "@toiletpaper/ui";
+import {
+  Badge,
+  Card,
+  CardContent,
+  Label,
+  Text,
+  Code,
+  ProgressBar,
+  VerdictBadge,
+  Stack,
+  Divider,
+} from "@toiletpaper/ui";
 import type { simulations } from "@toiletpaper/db";
 import { getHistory } from "@/lib/donto";
 
@@ -55,20 +66,20 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
   const conf = claim.confidence ?? (dontoData.confidence ? parseFloat(dontoData.confidence) : null);
   const category = dontoData.category;
 
-  const categoryColor: Record<string, string> = {
-    quantitative: "bg-blue-100 text-blue-800",
-    comparative: "bg-purple-100 text-purple-800",
-    causal: "bg-orange-100 text-orange-800",
-    methodological: "bg-teal-100 text-teal-800",
-    theoretical: "bg-indigo-100 text-indigo-800",
+  const categoryVariant: Record<string, "default" | "success" | "warning" | "danger" | "muted"> = {
+    quantitative: "default",
+    comparative: "default",
+    causal: "warning",
+    methodological: "muted",
+    theoretical: "default",
   };
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white shadow-sm">
-      <div className="p-5">
-        <div className="flex items-start gap-3">
-          <p className="flex-1 text-sm leading-relaxed">{claim.text}</p>
-          <div className="flex shrink-0 flex-col items-end gap-1">
+    <Card>
+      <CardContent className="p-5">
+        <Stack direction="horizontal" align="start" gap={3}>
+          <Text size="sm" leading="relaxed" className="flex-1">{claim.text}</Text>
+          <Stack align="end" gap={1} className="shrink-0">
             <Badge
               variant={
                 claim.status === "asserted"
@@ -81,92 +92,90 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
               {claim.status}
             </Badge>
             {category && (
-              <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor[category] ?? "bg-stone-100 text-stone-600"}`}
-              >
+              <Badge variant={categoryVariant[category] ?? "muted"}>
                 {category}
-              </span>
+              </Badge>
             )}
-          </div>
-        </div>
+          </Stack>
+        </Stack>
 
         {conf != null && (
           <div className="mt-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted">Confidence</span>
-              <div className="h-2 flex-1 rounded-full bg-stone-100">
-                <div
-                  className={`h-2 rounded-full ${conf >= 0.9 ? "bg-green-500" : conf >= 0.7 ? "bg-amber-500" : "bg-red-500"}`}
-                  style={{ width: `${conf * 100}%` }}
-                />
-              </div>
-              <span className="text-xs font-medium">
+            <Stack direction="horizontal" align="center" gap={2}>
+              <Label size="xs">Confidence</Label>
+              <ProgressBar
+                value={conf * 100}
+                color={conf >= 0.9 ? "success" : conf >= 0.7 ? "warning" : "error"}
+                className="flex-1"
+              />
+              <Text size="xs" weight="medium" as="span">
                 {(conf * 100).toFixed(0)}%
-              </span>
-            </div>
+              </Text>
+            </Stack>
           </div>
         )}
 
         {(dontoData.value || dontoData.predicate || dontoData.evidence) && (
-          <div className="mt-3 grid gap-2 border-t border-stone-100 pt-3 sm:grid-cols-2">
-            {dontoData.predicate && (
-              <div>
-                <span className="text-xs text-muted">Predicate</span>
-                <p className="font-mono text-xs">{dontoData.predicate}</p>
-              </div>
-            )}
-            {dontoData.value && (
-              <div>
-                <span className="text-xs text-muted">Value</span>
-                <p className="text-sm font-semibold">
-                  {dontoData.value}
-                  {dontoData.unit && (
-                    <span className="ml-1 font-normal text-muted">
-                      {dontoData.unit}
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
-            {dontoData.evidence && (
-              <div className="sm:col-span-2">
-                <span className="text-xs text-muted">Evidence</span>
-                <p className="text-xs text-stone-600">{dontoData.evidence}</p>
-              </div>
-            )}
-          </div>
+          <>
+            <Divider />
+            <div className="grid gap-2 sm:grid-cols-2">
+              {dontoData.predicate && (
+                <div>
+                  <Label size="xs">Predicate</Label>
+                  <Code>{dontoData.predicate}</Code>
+                </div>
+              )}
+              {dontoData.value && (
+                <div>
+                  <Label size="xs">Value</Label>
+                  <Text size="sm" weight="semibold">
+                    {dontoData.value}
+                    {dontoData.unit && (
+                      <Text as="span" color="muted" weight="normal" className="ml-1">
+                        {dontoData.unit}
+                      </Text>
+                    )}
+                  </Text>
+                </div>
+              )}
+              {dontoData.evidence && (
+                <div className="sm:col-span-2">
+                  <Label size="xs">Evidence</Label>
+                  <Text size="xs" color="light">{dontoData.evidence}</Text>
+                </div>
+              )}
+            </div>
+          </>
         )}
-      </div>
+      </CardContent>
 
       {claim.dontoSubjectIri && (
         <div className="border-t border-stone-100 px-5 py-2">
-          <p className="font-mono text-xs text-muted">
-            {claim.dontoSubjectIri}
-          </p>
+          <Code>{claim.dontoSubjectIri}</Code>
         </div>
       )}
 
       {claim.simulations.length > 0 && (
         <div className="border-t border-stone-100 px-5 py-3">
-          <p className="mb-2 text-xs font-medium text-muted">Simulations</p>
-          {claim.simulations.map((sim) => (
-            <div key={sim.id} className="flex items-center gap-2 text-xs">
-              <Badge
-                variant={
-                  sim.verdict === "confirmed"
-                    ? "success"
-                    : sim.verdict === "refuted"
-                      ? "danger"
-                      : "warning"
-                }
-              >
-                {sim.verdict ?? "pending"}
-              </Badge>
-              <span className="text-muted">{sim.method}</span>
-            </div>
-          ))}
+          <Label size="xs" className="mb-2 block">Simulations</Label>
+          <Stack gap={2}>
+            {claim.simulations.map((sim) => (
+              <Stack key={sim.id} direction="horizontal" align="center" gap={2}>
+                <VerdictBadge
+                  verdict={
+                    sim.verdict === "confirmed"
+                      ? "reproduced"
+                      : sim.verdict === "refuted"
+                        ? "contradicted"
+                        : "undetermined"
+                  }
+                />
+                <Text size="xs" color="muted">{sim.method}</Text>
+              </Stack>
+            ))}
+          </Stack>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
