@@ -85,81 +85,79 @@ function findClaimInText(
   paperText: string,
   claimText: string,
 ): { start: number; end: number } | null {
-  // Try exact match first
-  const idx = paperText.indexOf(claimText);
-  if (idx !== -1) return { start: idx, end: idx + claimText.length };
+  if (!claimText || claimText.length < 10) return null;
 
-  // Try matching a significant substring (first 80 chars of claim)
-  const snippet = claimText.slice(0, 80).trim();
-  if (snippet.length > 20) {
-    const snipIdx = paperText.indexOf(snippet);
-    if (snipIdx !== -1) return { start: snipIdx, end: snipIdx + snippet.length };
-  }
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
 
-  // Try fuzzy: find the best contiguous matching window.
-  // Normalize both texts for comparison.
-  const normalize = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  // Extract key words from the claim (4+ chars, skip common words)
+  const stopWords = new Set(["this", "that", "with", "from", "have", "been", "will", "than", "more", "each", "also", "into", "only", "such", "when", "which", "their", "there", "these", "those", "where", "while", "about"]);
+  const claimKeyWords = norm(claimText)
+    .split(" ")
+    .filter(w => w.length >= 4 && !stopWords.has(w));
 
-  const normPaper = normalize(paperText);
-  const normClaim = normalize(claimText);
+  if (claimKeyWords.length < 2) return null;
 
-  if (normClaim.length < 10) return null;
+  // Strategy: scan the paper in overlapping windows, score each by
+  // how many claim key words it contains. Pick the best window.
+  const windowChars = Math.max(claimText.length * 2, 300);
+  const stepSize = 50;
+  const normPaper = norm(paperText);
 
-  // Search for the longest matching prefix of the normalized claim
-  const searchLen = Math.min(normClaim.length, 120);
-  const searchStr = normClaim.slice(0, searchLen);
-  const fIdx = normPaper.indexOf(searchStr);
-  if (fIdx !== -1) {
-    // Map back to original text positions via a character offset map
-    const posMap = buildNormPosMap(paperText);
-    const origStart = posMap[fIdx];
-    const origEnd = posMap[Math.min(fIdx + searchLen, posMap.length - 1)];
-    if (origStart !== undefined && origEnd !== undefined) {
-      return { start: origStart, end: origEnd + 1 };
-    }
-  }
-
-  // Try word-level sliding window match
-  const claimWords = normClaim.split(" ").filter(Boolean);
-  if (claimWords.length < 3) return null;
-
-  const paperWords = normPaper.split(" ").filter(Boolean);
   let bestScore = 0;
-  let bestPos = -1;
-  const windowSize = Math.min(claimWords.length, paperWords.length);
+  let bestNormPos = 0;
 
-  for (let i = 0; i <= paperWords.length - windowSize; i++) {
-    let matches = 0;
-    for (let j = 0; j < windowSize; j++) {
-      if (paperWords[i + j] === claimWords[j]) matches++;
+  for (let i = 0; i <= normPaper.length - 50; i += stepSize) {
+    const window = normPaper.slice(i, i + windowChars);
+    let hits = 0;
+    for (const kw of claimKeyWords) {
+      if (window.includes(kw)) hits++;
     }
-    const score = matches / windowSize;
-    if (score > bestScore && score > 0.5) {
+    const score = hits / claimKeyWords.length;
+    if (score > bestScore) {
       bestScore = score;
-      bestPos = i;
+      bestNormPos = i;
     }
   }
 
-  if (bestPos >= 0) {
-    // Find the original text position corresponding to word positions
-    const posMap = buildNormPosMap(paperText);
-    const normWords = normPaper.split(" ").filter(Boolean);
-    let charOffset = 0;
-    for (let w = 0; w < bestPos; w++) {
-      charOffset = normPaper.indexOf(normWords[w], charOffset) + normWords[w].length;
+  // Require at least 60% of key words to match
+  if (bestScore < 0.6) return null;
+
+  // Map normalized position back to original text
+  const posMap = buildNormPosMap(paperText);
+  const origStart = posMap[bestNormPos];
+  if (origStart === undefined) return null;
+
+  // Find a reasonable end — look for the specific matching region
+  // within the window by finding first and last key word occurrences
+  const windowNorm = normPaper.slice(bestNormPos, bestNormPos + windowChars);
+  let firstHit = windowChars;
+  let lastHit = 0;
+  for (const kw of claimKeyWords) {
+    const pos = windowNorm.indexOf(kw);
+    if (pos >= 0) {
+      if (pos < firstHit) firstHit = pos;
+      const endPos = pos + kw.length;
+      if (endPos > lastHit) lastHit = endPos;
     }
-    const endWord = bestPos + windowSize - 1;
-    let endOffset = charOffset;
-    for (let w = bestPos; w <= endWord; w++) {
-      endOffset = normPaper.indexOf(normWords[w], endOffset) + normWords[w].length;
-    }
-    const origStart = posMap[charOffset] ?? 0;
-    const origEnd = posMap[Math.min(endOffset, posMap.length - 1)] ?? paperText.length;
-    return { start: origStart, end: origEnd };
   }
 
-  return null;
+  const spanStartNorm = bestNormPos + firstHit;
+  const spanEndNorm = bestNormPos + lastHit;
+
+  const oStart = posMap[Math.min(spanStartNorm, posMap.length - 1)] ?? origStart;
+  const oEnd = posMap[Math.min(spanEndNorm, posMap.length - 1)] ?? (origStart + claimText.length);
+
+  // Validation: verify the original text at this range has meaningful overlap
+  const extracted = paperText.slice(oStart, oEnd);
+  const extractedNorm = norm(extracted);
+  let validHits = 0;
+  for (const kw of claimKeyWords) {
+    if (extractedNorm.includes(kw)) validHits++;
+  }
+  if (validHits / claimKeyWords.length < 0.4) return null;
+
+  return { start: oStart, end: oEnd };
 }
 
 function buildNormPosMap(original: string): number[] {
