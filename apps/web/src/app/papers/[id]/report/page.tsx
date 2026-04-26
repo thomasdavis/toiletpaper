@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,17 +14,34 @@ import { ReportTabs } from "@/components/report-tabs";
 
 type Simulation = typeof simulations.$inferSelect;
 
-function mapVerdict(verdict: string | null) {
+function mapVerdict(verdict: string | null, metadata?: unknown) {
+  // Check metadata.original_verdict first — preserves fragile/undetermined/not-simulable
+  if (metadata && typeof metadata === "object") {
+    const m = metadata as Record<string, unknown>;
+    if (typeof m.original_verdict === "string") {
+      const ov = m.original_verdict;
+      if (ov === "reproduced") return "reproduced" as const;
+      if (ov === "contradicted") return "contradicted" as const;
+      if (ov === "fragile") return "fragile" as const;
+      // Fall through for other original verdicts
+    }
+  }
   if (verdict === "confirmed") return "reproduced" as const;
   if (verdict === "refuted") return "contradicted" as const;
   return "inconclusive" as const;
 }
 
-function bestVerdict(sims: Simulation[]) {
-  const v = sims.map((s) => mapVerdict(s.verdict));
-  if (v.includes("contradicted")) return "contradicted";
-  if (v.includes("reproduced")) return "reproduced";
-  return "inconclusive";
+function bestVerdict(sims: Simulation[]): { verdict: string; conflicting: boolean } {
+  if (sims.length === 0) return { verdict: "untested", conflicting: false };
+  // Use most recent simulation's verdict
+  const sorted = [...sims].sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const verdicts = sims.map((s) => mapVerdict(s.verdict, s.metadata));
+  const hasReproduced = verdicts.includes("reproduced");
+  const hasContradicted = verdicts.includes("contradicted");
+  const conflicting = hasReproduced && hasContradicted;
+  return { verdict: mapVerdict(sorted[0].verdict, sorted[0].metadata), conflicting };
 }
 
 function extractResult(result: unknown) {
@@ -53,7 +70,8 @@ export interface ReportClaim {
   text: string;
   confidence: number | null;
   category?: string;
-  verdict: "reproduced" | "contradicted" | "inconclusive" | "untested";
+  verdict: "reproduced" | "contradicted" | "inconclusive" | "fragile" | "untested";
+  conflicting?: boolean;
   simulations: {
     method: string;
     verdict: string;
@@ -78,7 +96,7 @@ export default async function ReportPage({
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) notFound();
 
-  const paperClaims = await db.select().from(claims).where(eq(claims.paperId, id));
+  const paperClaims = await db.select().from(claims).where(eq(claims.paperId, id)).orderBy(asc(claims.createdAt));
 
   const claimIds = paperClaims.map((c) => c.id);
   let sims: Simulation[] = [];
@@ -91,18 +109,18 @@ export default async function ReportPage({
 
   const reportClaims: ReportClaim[] = paperClaims.map((claim) => {
     const claimSims = sims.filter((s) => s.claimId === claim.id);
+    const { verdict, conflicting } = bestVerdict(claimSims);
     return {
       id: claim.id,
       text: claim.text,
       confidence: claim.confidence,
-      verdict: claimSims.length === 0
-        ? "untested"
-        : bestVerdict(claimSims) as "reproduced" | "contradicted" | "inconclusive",
+      verdict: verdict as ReportClaim["verdict"],
+      conflicting,
       simulations: claimSims.map((s) => {
         const r = extractResult(s.result);
         return {
           method: s.method.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-          verdict: mapVerdict(s.verdict),
+          verdict: mapVerdict(s.verdict, s.metadata),
           reason: r.reason,
           measured: r.measured,
           expected: r.expected,

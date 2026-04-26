@@ -48,10 +48,17 @@ async function main() {
   const [paper] = await sql`SELECT * FROM papers WHERE id = ${paperId}`;
 
   let stored = 0;
+  let skipped = 0;
   for (const r of results) {
-    const claim = claims[r.claim_index];
+    // Match by claim text instead of index — claim_index values are unreliable
+    const claim = claims.find(c =>
+      c.text.slice(0, 50) === r.claim_text?.slice(0, 50)
+    ) ?? claims.find(c =>
+      r.claim_text && c.text.includes(r.claim_text.slice(0, 30))
+    );
     if (!claim) {
-      console.warn(`  Claim index ${r.claim_index} out of range (${claims.length} claims)`);
+      console.warn(`  ⚠ No matching claim found for index=${r.claim_index}, text="${r.claim_text?.slice(0, 80) ?? "(none)"}". Skipping.`);
+      skipped++;
       continue;
     }
 
@@ -78,6 +85,7 @@ async function main() {
           simulation_file: r.simulation_file,
           test_type: r.test_type,
           paper_id: paperId,
+          original_verdict: r.verdict,
         })}::jsonb,
         NOW()
       )
@@ -112,7 +120,7 @@ async function main() {
   const fragile = results.filter((r) => r.verdict === "fragile").length;
 
   console.log();
-  console.log(`Stored ${stored} results for "${paper.title}"`);
+  console.log(`Stored ${stored} results for "${paper.title}"${skipped > 0 ? ` (${skipped} skipped — no matching claim)` : ""}`);
   console.log(`  Reproduced: ${reproduced} | Contradicted: ${contradicted} | Fragile: ${fragile} | Total: ${results.length}`);
 }
 

@@ -8,6 +8,7 @@ type Tab = "all" | "contradicted" | "reproduced" | "inconclusive" | "untested";
 const VERDICT_COLORS: Record<string, { bg: string; border: string; text: string; dot: string }> = {
   reproduced: { bg: "bg-[#D4EDE1]/30", border: "border-[#2D6A4F]/20", text: "text-[#2D6A4F]", dot: "bg-[#2D6A4F]" },
   contradicted: { bg: "bg-[#F5D5D6]/30", border: "border-[#9B2226]/20", text: "text-[#9B2226]", dot: "bg-[#9B2226]" },
+  fragile: { bg: "bg-[#FFF3E0]/30", border: "border-[#E65100]/20", text: "text-[#E65100]", dot: "bg-[#E65100]" },
   inconclusive: { bg: "bg-[#F5ECD4]/30", border: "border-[#B07D2B]/20", text: "text-[#B07D2B]", dot: "bg-[#B07D2B]" },
   untested: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#9B9B9B]", dot: "bg-[#9B9B9B]" },
 };
@@ -106,10 +107,17 @@ function ClaimRow({ claim }: { claim: ReportClaim }) {
             {claim.verdict}
           </span>
           {claim.confidence != null && (
-            <span className="text-xs text-[#9B9B9B]">{(claim.confidence * 100).toFixed(0)}%</span>
+            <span className="text-xs text-[#9B9B9B]">ext. {(claim.confidence * 100).toFixed(0)}%</span>
           )}
         </div>
       </button>
+
+      {/* Conflicting verdicts warning */}
+      {claim.conflicting && (
+        <div className="mx-4 mb-3 rounded border border-[#B07D2B]/30 bg-[#F5ECD4]/40 px-3 py-2 text-xs text-[#B07D2B]">
+          Conflicting verdicts: simulations for this claim produced both reproduced and contradicted results. Showing the most recent verdict.
+        </div>
+      )}
 
       {/* Expanded details -- clearly differentiated */}
       {expanded && claim.simulations.length > 0 && (
