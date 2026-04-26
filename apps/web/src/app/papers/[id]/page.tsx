@@ -2,11 +2,14 @@ import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { PaperStatusBadge } from "@/components/paper-status-badge";
 import { ClaimCard } from "@/components/claim-card";
 import { DontoContextInfo } from "@/components/donto-context-info";
+import { VerdictSummary } from "@/components/verdict-summary";
 import { getHistory, getContexts } from "@/lib/donto";
 import {
+  Button,
   Container,
   Heading,
   Text,
@@ -84,6 +87,20 @@ export default async function PaperDetailPage({
             statementCount={paperCtx.count}
             dontoHistory={dontoHistory}
           />
+        )}
+
+        {sims.length > 0 && (
+          <Stack gap={4}>
+            <Stack direction="horizontal" align="center" justify="between">
+              <div /> {/* spacer for alignment */}
+              <Link href={`/papers/${id}/report`}>
+                <Button variant="secondary" size="sm">
+                  View Full Report
+                </Button>
+              </Link>
+            </Stack>
+            <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />
+          </Stack>
         )}
 
         <Stack gap={4}>
