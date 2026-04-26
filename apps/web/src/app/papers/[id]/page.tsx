@@ -9,7 +9,6 @@ import { DontoContextInfo } from "@/components/donto-context-info";
 import { VerdictSummary } from "@/components/verdict-summary";
 import { getHistory, getContexts } from "@/lib/donto";
 import {
-  Button,
   Container,
   Heading,
   Text,
@@ -78,6 +77,17 @@ export default async function PaperDetailPage({
               {paper.abstract}
             </Text>
           )}
+
+          {/* Prominent report button */}
+          {sims.length > 0 && (
+            <div className="mt-5">
+              <Link href={`/papers/${id}/report`}>
+                <button className="inline-flex h-12 items-center gap-2.5 rounded-md bg-[#4A6FA5] px-8 text-base font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
+                  View Analysis Report
+                </button>
+              </Link>
+            </div>
+          )}
         </div>
 
         {paperCtx && (
@@ -90,17 +100,7 @@ export default async function PaperDetailPage({
         )}
 
         {sims.length > 0 && (
-          <Stack gap={4}>
-            <Stack direction="horizontal" align="center" justify="between">
-              <div /> {/* spacer for alignment */}
-              <Link href={`/papers/${id}/report`}>
-                <Button variant="secondary" size="sm">
-                  View Full Report
-                </Button>
-              </Link>
-            </Stack>
-            <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />
-          </Stack>
+          <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />
         )}
 
         <Stack gap={4}>

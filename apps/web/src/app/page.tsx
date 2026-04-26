@@ -11,9 +11,7 @@ import {
 import {
   Container,
   Heading,
-  Text,
   StatCard,
-  Button,
 } from "@toiletpaper/ui";
 
 export default async function DashboardPage() {
@@ -49,24 +47,52 @@ export default async function DashboardPage() {
 
   return (
     <Container>
-      <div className="space-y-10 py-4">
-        <div>
-          <Heading level={1}>Dashboard</Heading>
-          <Text color="muted" className="mt-2">
-            Upload papers, extract claims, simulate physics, verify truth.
-          </Text>
+      <div className="space-y-8 py-4">
+        {/* Header row: title + CTA */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-[48px] font-bold leading-tight tracking-[-0.02em] text-[#1A1A1A]">
+              Dashboard
+            </h1>
+            <p className="mt-2 text-[15px] text-[#6B6B6B]">
+              Upload papers, extract claims, simulate physics, verify truth.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-3 pt-2">
+            <Link href="/upload">
+              <button className="inline-flex h-11 items-center gap-2 rounded-md bg-[#4A6FA5] px-6 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
+                Upload a paper
+              </button>
+            </Link>
+            <Link href="/papers">
+              <button className="inline-flex h-11 items-center gap-2 rounded-md border border-[#D4D0C8] bg-white px-6 text-sm font-medium text-[#1A1A1A] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
+                Browse papers
+              </button>
+            </Link>
+          </div>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-3">
-          <Link href="/papers">
-            <StatCard label="Papers" value={stats.papers} />
-          </Link>
-          <StatCard label="Claims Extracted" value={stats.claims} />
-          <StatCard label="Simulations" value={stats.simulations} />
+        {/* Stats row */}
+        <div>
+          <div className="grid gap-5 sm:grid-cols-3">
+            <Link href="/papers">
+              <StatCard label="Papers" value={stats.papers} />
+            </Link>
+            <StatCard label="Claims Extracted" value={stats.claims} />
+            <StatCard label="Simulations" value={stats.simulations} />
+          </div>
+          {/* Summary line */}
+          <p className="mt-3 text-sm text-[#6B6B6B]">
+            {stats.papers} paper{stats.papers !== 1 ? "s" : ""} analyzed, {stats.claims.toLocaleString()} claim{stats.claims !== 1 ? "s" : ""} extracted, {stats.simulations.toLocaleString()} simulation{stats.simulations !== 1 ? "s" : ""} completed
+          </p>
         </div>
 
+        {/* Donto Knowledge Graph */}
         <div>
-          <Heading level={4} className="mb-4">Donto Knowledge Graph</Heading>
+          <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
+            <span className="inline-block h-6 w-1 rounded-full bg-[#4A6FA5]" />
+            <span className="font-serif">Donto Knowledge Graph</span>
+          </h2>
           <div className="grid gap-5 sm:grid-cols-4">
             <div className={`rounded-lg border p-5 shadow-sm ${healthy ? "border-[#2D6A4F]/30 bg-[#D4EDE1]/30" : "border-[#9B2226]/30 bg-[#F5D5D6]/30"}`}>
               <span className="block text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">Status</span>
@@ -80,9 +106,13 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* Proof Obligations */}
         {totalObligations > 0 && (
           <div>
-            <Heading level={4} className="mb-4">Proof Obligations</Heading>
+            <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
+              <span className="inline-block h-6 w-1 rounded-full bg-[#B07D2B]" />
+              <span className="font-serif">Proof Obligations</span>
+            </h2>
             <div className="grid gap-5 sm:grid-cols-3">
               {obligations.map((o) => (
                 <div
@@ -105,15 +135,6 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
-
-        <div className="flex gap-4 pt-2">
-          <Link href="/upload">
-            <Button size="lg">Upload a paper</Button>
-          </Link>
-          <Link href="/papers">
-            <Button variant="secondary" size="lg">Browse papers</Button>
-          </Link>
-        </div>
       </div>
     </Container>
   );

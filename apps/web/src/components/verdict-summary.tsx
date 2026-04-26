@@ -64,59 +64,59 @@ export function VerdictSummary({ simulations: sims, totalClaims }: VerdictSummar
             <StatCard
               label="Reproduced"
               value={reproduced}
-              className="border-l-2 border-l-[var(--color-reproduced)]"
+              className="border-l-2 border-l-[#2D6A4F]"
             />
             <StatCard
               label="Contradicted"
               value={contradicted}
-              className="border-l-2 border-l-[var(--color-contradicted)]"
+              className="border-l-2 border-l-[#9B2226]"
             />
             <StatCard
               label="Inconclusive"
               value={undetermined + untested}
-              className="border-l-2 border-l-[var(--color-undetermined)]"
+              className="border-l-2 border-l-[#6B6B6B]"
             />
           </div>
 
           {/* Horizontal stacked bar */}
           <div>
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-[var(--color-rule-faint)]">
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-[#E8E5DE]">
               {reproducedPct > 0 && (
                 <div
-                  className="bg-[var(--color-reproduced)] transition-all"
+                  className="bg-[#2D6A4F] transition-all"
                   style={{ width: `${reproducedPct}%` }}
                   title={`Reproduced: ${reproduced}`}
                 />
               )}
               {contradictedPct > 0 && (
                 <div
-                  className="bg-[var(--color-contradicted)] transition-all"
+                  className="bg-[#9B2226] transition-all"
                   style={{ width: `${contradictedPct}%` }}
                   title={`Contradicted: ${contradicted}`}
                 />
               )}
               {undeterminedPct > 0 && (
                 <div
-                  className="bg-[var(--color-undetermined)] transition-all"
+                  className="bg-[#6B6B6B] transition-all"
                   style={{ width: `${undeterminedPct}%` }}
                   title={`Inconclusive: ${undetermined}`}
                 />
               )}
             </div>
-            <Stack direction="horizontal" gap={4} className="mt-2">
-              <Stack direction="horizontal" align="center" gap={1}>
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-reproduced)]" />
-                <Text size="xs" color="muted">Reproduced ({reproduced})</Text>
-              </Stack>
-              <Stack direction="horizontal" align="center" gap={1}>
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-contradicted)]" />
-                <Text size="xs" color="muted">Contradicted ({contradicted})</Text>
-              </Stack>
-              <Stack direction="horizontal" align="center" gap={1}>
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--color-undetermined)]" />
-                <Text size="xs" color="muted">Inconclusive ({undetermined})</Text>
-              </Stack>
-            </Stack>
+            <div className="mt-2 flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#2D6A4F]" />
+                <span className="text-xs text-[#6B6B6B]">Reproduced ({reproduced})</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#9B2226]" />
+                <span className="text-xs text-[#6B6B6B]">Contradicted ({contradicted})</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#6B6B6B]" />
+                <span className="text-xs text-[#6B6B6B]">Inconclusive ({undetermined})</span>
+              </div>
+            </div>
           </div>
         </Stack>
       </CardContent>
