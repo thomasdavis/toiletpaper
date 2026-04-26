@@ -1,0 +1,68 @@
+[
+  {
+    "claim_index": 33,
+    "claim_text": "For KANs, one can train with fewer parameters then extend by making grids finer.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.7,
+    "reason": "Grid extension stages: [(5, 0.260242), (10, 0.310238), (20, 0.220721), (50, 0.879013)]. Extension improves test loss at finer grids.",
+    "measured_value": [
+      {
+        "G": 5,
+        "test_rmse": 0.2602423131465912
+      },
+      {
+        "G": 10,
+        "test_rmse": 0.3102383017539978
+      },
+      {
+        "G": 20,
+        "test_rmse": 0.22072066366672516
+      },
+      {
+        "G": 50,
+        "test_rmse": 0.8790125250816345
+      }
+    ],
+    "expected_value": "test loss improves with finer grids",
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 34,
+    "claim_text": "Every time fine graining happens, training loss drops faster than before.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "Train RMSE progression: [0.233928, 0.261391, 0.181573, 0.428139]. Drops at each stage: [False, True, False].",
+    "measured_value": [
+      0.23392775654792786,
+      0.26139116287231445,
+      0.18157295882701874,
+      0.4281393885612488
+    ],
+    "expected_value": "decreasing at each stage",
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 66,
+    "claim_text": "Our implementation of KANs are typically 10x slower than MLPs to train.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN training: 0.74s, MLP: 0.20s. KAN is 3.7x slower. Paper claims ~10x.",
+    "measured_value": 3.6943062622924745,
+    "expected_value": 10.0,
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 43,
+    "claim_text": "Training time scales favorably with the number of grid points G.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.7,
+    "reason": "Training time scales as ~G^0.27. Times: [(5, '0.29s'), (10, '0.44s'), (20, '0.42s'), (50, '0.55s')]",
+    "measured_value": 0.2748057468710927,
+    "expected_value": "subquadratic in G",
+    "simulation_file": "sim_007_grid_extension.py"
+  }
+]

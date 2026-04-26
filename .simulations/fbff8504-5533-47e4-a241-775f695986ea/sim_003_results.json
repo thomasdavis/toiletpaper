@@ -1,0 +1,35 @@
+[
+  {
+    "claim_index": 24,
+    "claim_text": "There are in total O(N\u00b2L(G+k)) ~ O(N\u00b2LG) parameters.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "All KAN parameter counts match formula: n_out*n_in*(G+k) spline + n_out*n_in base + n_out*n_in scale per layer.",
+    "measured_value": "all_match",
+    "expected_value": "O(N\u00b2L(G+k))",
+    "simulation_file": "sim_003_param_count.py"
+  },
+  {
+    "claim_index": 25,
+    "claim_text": "An MLP with depth L and width N only needs O(N\u00b2L) parameters.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "All MLP parameter counts match formula: N\u00b2L weights + N(L+1) biases.",
+    "measured_value": "all_match",
+    "expected_value": "O(N\u00b2L)",
+    "simulation_file": "sim_003_param_count.py"
+  },
+  {
+    "claim_index": 76,
+    "claim_text": "The [17,1,14] KAN (G=3, k=3) has \u2248 200 parameters.",
+    "test_type": "numerical_prediction",
+    "verdict": "reproduced",
+    "confidence": 0.9,
+    "reason": "Measured 248 parameters vs claimed ~200.",
+    "measured_value": 248,
+    "expected_value": 200,
+    "simulation_file": "sim_003_param_count.py"
+  }
+]

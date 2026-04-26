@@ -1,0 +1,127 @@
+[
+  {
+    "claim_index": 2,
+    "claim_text": "For accuracy, smaller KANs can achieve comparable or better accuracy than larger MLPs in function fitting tasks.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D: Best KAN RMSE=4.5493e-02 (150 params) vs best MLP RMSE=3.7790e-02 (10501 params)",
+    "measured_value": 0.04549262300133705,
+    "expected_value": null,
+    "simulation_file": "sim_001_scaling_laws.py",
+    "baseline_result": "MLP best RMSE=3.7790e-02",
+    "proposed_result": "KAN best RMSE=4.5493e-02"
+  },
+  {
+    "claim_index": 3,
+    "claim_text": "Theoretically and empirically, KANs possess faster neural scaling laws than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D: KAN exponent=-0.733 vs MLP exponent=-0.578; 4D: KAN=0.157 vs MLP=-0.209",
+    "measured_value": {
+      "2d_kan": -0.7325448850417655,
+      "2d_mlp": -0.5775904896337927,
+      "4d_kan": 0.15694616788413698,
+      "4d_mlp": -0.20938069425969721
+    },
+    "expected_value": "KAN exponent steeper (more negative) than MLP",
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 15,
+    "claim_text": "KANs can learn both the compositional structure and the univariate functions quite well, hence outperforming MLPs by a large margin.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 42,
+    "claim_text": "Despite this suboptimality, KANs still have much better scaling laws than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 50,
+    "claim_text": "KANs can almost saturate the fastest scaling law predicted by our theory (\u03b1 = 4), while MLPs scales slowly and plateau quickly.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 51,
+    "claim_text": "We plot test RMSE as a function of the number of parameters for KANs and MLPs, showing that KANs have better scaling curves than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 52,
+    "claim_text": "KANs can almost saturate the steeper red lines, while MLPs struggle to converge.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 56,
+    "claim_text": "KANs are more efficient and accurate in representing special functions than MLPs.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D test: KAN best RMSE=4.5493e-02 vs MLP=3.7790e-02",
+    "measured_value": 0.04549262300133705,
+    "expected_value": null,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 57,
+    "claim_text": "KANs' performance is shown to be consistently better than MLPs.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D test: KAN best RMSE=4.5493e-02 vs MLP=3.7790e-02",
+    "measured_value": 0.04549262300133705,
+    "expected_value": null,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 63,
+    "claim_text": "A 2-Layer width-10 KAN is 100 times more accurate than a 4-Layer width-100 MLP (10^-7 vs 10^-5 MSE) and 100 times more parameter efficient.",
+    "test_type": "numerical_prediction",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "KAN: 300 params, MSE=1.1760e-03; MLP: 30701 params, MSE=6.5798e-04; accuracy ratio=0.6x, param ratio=102.3x",
+    "measured_value": {
+      "accuracy_ratio": 0.559490052829666,
+      "param_ratio": 102.33666666666667
+    },
+    "expected_value": {
+      "accuracy_ratio": 100,
+      "param_ratio": 100
+    },
+    "simulation_file": "sim_001_scaling_laws.py",
+    "baseline_result": "MLP MSE=6.5798e-04",
+    "proposed_result": "KAN MSE=1.1760e-03"
+  }
+]

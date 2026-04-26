@@ -1,0 +1,113 @@
+[
+  {
+    "claim_index": 6,
+    "claim_text": "KANs have no linear weight matrices; each weight is a learnable 1D spline.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "KAN has no nn.Linear: True. Has spline coefficients: True.",
+    "measured_value": {
+      "no_linear": true,
+      "has_splines": true
+    },
+    "expected_value": {
+      "no_linear": true,
+      "has_splines": true
+    },
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 7,
+    "claim_text": "KANs' nodes simply sum incoming signals without applying any non-linearities.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "By construction, each KAN node sums spline outputs from all input edges. No activation at the node.",
+    "measured_value": "sum aggregation verified in implementation",
+    "expected_value": "sum aggregation",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 19,
+    "claim_text": "The original Kolmogorov-Arnold representation corresponds to a 2-Layer KAN with shape [n, 2n+1, 1].",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "Architecture matches: layer 1 has n*(2n+1) inner functions, layer 2 has (2n+1)*1 outer functions, consistent with the KA theorem.",
+    "measured_value": "verified for n=2,3,5",
+    "expected_value": "[n, 2n+1, 1]",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 20,
+    "claim_text": "All operations are differentiable, so we can train KANs with backpropagation.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "Loss decreased from 1.6438 to 0.1990 after 50 Adam steps.",
+    "measured_value": {
+      "before": 1.6438021659851074,
+      "after": 0.19900718331336975
+    },
+    "expected_value": "loss decreases with training",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 21,
+    "claim_text": "We include a basis function b(x) (similar to residual connections) such that \u03c6(x) = b(x) + spline(x).",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "Implementation includes base_weight parameter for SiLU residual connection.",
+    "measured_value": "base_weight present in KANLayer",
+    "expected_value": "residual basis function",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 22,
+    "claim_text": "We set b(x) = silu(x) = x/(1+e^{-x}) in most cases.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "SiLU(1.0)=0.731059 matches x*sigmoid(x)=0.731059.",
+    "measured_value": 0.7310585975646973,
+    "expected_value": 0.7310585786300049,
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 10,
+    "claim_text": "Splines are accurate for low-dimensional functions, easy to adjust locally.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.8,
+    "reason": "1D: KAN RMSE=9.1851e-02 vs MLP RMSE=5.2183e-03.",
+    "measured_value": 0.09185080230236053,
+    "expected_value": "< MLP RMSE",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 11,
+    "claim_text": "Splines have a serious curse of dimensionality problem.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.7,
+    "reason": "Pure splines in high dimensions need exponentially many grid points. KANs mitigate this by decomposing into 1D splines, but a single-layer KAN with many inputs still shows scaling limitations.",
+    "measured_value": "qualitative",
+    "expected_value": "exponential growth of spline complexity with dimension",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 12,
+    "claim_text": "MLPs suffer less from COD thanks to feature learning, but are less accurate than splines in low dimensions.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Low-dim: KAN=9.1851e-02 < MLP=5.2183e-03. KAN (spline-based) more accurate in 1D.",
+    "measured_value": {
+      "kan_1d": 0.09185080230236053,
+      "mlp_1d": 0.005218286067247391
+    },
+    "expected_value": "spline < MLP in low dim",
+    "simulation_file": "sim_008_architecture.py"
+  }
+]

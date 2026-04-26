@@ -91,31 +91,36 @@ export async function POST(req: Request) {
     const extraction = await extractClaimsFromText(textForExtraction, apiKey);
 
     const { ingestPaperIntoDonto } = await import("@toiletpaper/extractor");
-    const dontoResult = await ingestPaperIntoDonto(
-      paper.id,
-      textForExtraction,
-      "",
-      extraction,
-      fileType === "markdown" ? "text/markdown" : "application/pdf",
-    );
+    let dontoResult;
+    try {
+      dontoResult = await ingestPaperIntoDonto(
+        paper.id,
+        textForExtraction,
+        "",
+        extraction,
+        fileType === "markdown" ? "text/markdown" : "application/pdf",
+      );
+    } catch (dontoErr) {
+      console.error("Donto ingestion failed (continuing without):", dontoErr instanceof Error ? dontoErr.message : dontoErr);
+      dontoResult = { claimIris: extraction.claims.map(() => null), statementCount: 0, documentId: "", revisionId: "", agentId: "", runId: "", obligationIds: [], spanCount: 0, evidenceLinkCount: 0, argumentCount: 0, certifiedCount: 0, shapeChecks: 0 };
+    }
 
     await db
       .update(papers)
       .set({
         title: extraction.title || title,
-        authors:
-          extraction.authors.length > 0 ? extraction.authors : [],
-        abstract: extraction.abstract || null,
+        authors: (extraction.authors ?? []).filter(Boolean),
+        abstract: extraction.abstract ?? null,
         updatedAt: new Date(),
       })
       .where(eq(papers.id, paper.id));
 
     const claimValues = extraction.claims.map((claim, i) => ({
       paperId: paper.id,
-      text: claim.text,
+      text: claim.text ?? "",
       dontoSubjectIri: dontoResult.claimIris[i] ?? null,
       status: "asserted" as const,
-      confidence: claim.confidence,
+      confidence: claim.confidence ?? null,
     }));
 
     if (claimValues.length > 0) {

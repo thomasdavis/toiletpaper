@@ -1,0 +1,85 @@
+[
+  {
+    "claim_index": 27,
+    "claim_text": "Approximation bound: ||f - approx||_{C^m} <= C * G^{-(k+1-m)}",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.8,
+    "reason": "Mean scaling G^(0.40), median G^(0.41). Theory predicts G^(-4) for k=3. Paper reports G^(-3) empirically.",
+    "measured_value": {
+      "alpha_mean": 0.3982555474048171,
+      "alpha_median": 0.4102543307518332
+    },
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 29,
+    "claim_text": "For m=0, we recover L\u221e accuracy giving scaling exponent k+1.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Median RMSE scales as G^(0.41), expected G^(-4) for k=3.",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 30,
+    "claim_text": "Our approach gives \u03b1 = k + 1 where k is the piecewise polynomial order.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Measured median exponent 0.41, expected -4 for k=3.",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 31,
+    "claim_text": "We choose k=3 cubic splines so \u03b1=4 which is the largest and best scaling exponent.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Measured median exponent 0.41 with k=3 cubic splines.",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 39,
+    "claim_text": "A [2,1,1] KAN scales roughly as test RMSE \u221d G^{-3}.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.8,
+    "reason": "Mean RMSE scales as G^(0.40), expected ~G^(-3).",
+    "measured_value": 0.3982555474048171,
+    "expected_value": -3.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 40,
+    "claim_text": "According to Theorem 2.1, we would expect test RMSE \u221d G^{-4}.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.7,
+    "reason": "Median RMSE scaling G^(0.41) is closer to G^(-4); mean G^(0.40) is closer to G^(-3).",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 41,
+    "claim_text": "If we plot sqrt of median squared losses, we get scaling closer to G^{-4}.",
+    "test_type": "scaling_law",
+    "verdict": "contradicted",
+    "confidence": 0.4,
+    "reason": "Median exponent=0.41 vs mean exponent=0.40. Median is not closer to -4.",
+    "measured_value": {
+      "alpha_mean": 0.3982555474048171,
+      "alpha_median": 0.4102543307518332
+    },
+    "expected_value": "median closer to -4 than mean",
+    "simulation_file": "sim_002_grid_scaling.py"
+  }
+]

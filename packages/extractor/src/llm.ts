@@ -92,5 +92,16 @@ export async function extractClaimsFromText(
 
   const parsed = JSON.parse(content) as ExtractionResult;
   if (!parsed.relations) parsed.relations = [];
+  if (!parsed.claims) parsed.claims = [];
+  if (!parsed.authors) parsed.authors = [];
+  if (!parsed.title) parsed.title = "";
+  if (!parsed.abstract) parsed.abstract = "";
+  parsed.claims = parsed.claims.map((c) => ({
+    ...c,
+    text: c.text ?? "",
+    category: c.category ?? "unknown",
+    confidence: c.confidence ?? 0.5,
+    evidence: c.evidence ?? "",
+  }));
   return parsed;
 }

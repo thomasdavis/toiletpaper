@@ -1,0 +1,33 @@
+[
+  {
+    "claim_index": 53,
+    "claim_text": "For the 4D example, the 2-Layer KAN [4,9,1] behaves much worse than the 3-Layer KAN [4,2,2,1].",
+    "test_type": "comparative",
+    "verdict": "contradicted",
+    "confidence": 0.4,
+    "reason": "3-Layer KAN RMSE=1.7271e-01 vs 2-Layer KAN RMSE=1.4019e-01. Improvement ratio: 0.81x.",
+    "measured_value": {
+      "shallow": 0.14018630981445312,
+      "deep": 0.17270661890506744,
+      "ratio": 0.8117020106305831
+    },
+    "expected_value": "deep << shallow",
+    "simulation_file": "sim_006_depth.py",
+    "baseline_result": "2-Layer RMSE=1.4019e-01",
+    "proposed_result": "3-Layer RMSE=1.7271e-01"
+  },
+  {
+    "claim_index": 54,
+    "claim_text": "Deeper KANs have more expressive power, same as deeper MLPs.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "KAN: 3-layer=1.7271e-01 vs 2-layer=1.4019e-01; MLP: deep=1.9197e-01 vs shallow=3.0824e-01. Deeper better for both: KAN=False, MLP=True.",
+    "measured_value": {
+      "kan_ratio": 0.8117020106305831,
+      "mlp_ratio": 1.6056471120073006
+    },
+    "expected_value": "deeper > shallower for both",
+    "simulation_file": "sim_006_depth.py"
+  }
+]

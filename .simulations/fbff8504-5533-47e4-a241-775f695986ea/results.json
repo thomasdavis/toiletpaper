@@ -1,0 +1,514 @@
+[
+  {
+    "claim_index": 2,
+    "claim_text": "For accuracy, smaller KANs can achieve comparable or better accuracy than larger MLPs in function fitting tasks.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D: Best KAN RMSE=4.5493e-02 (150 params) vs best MLP RMSE=3.7790e-02 (10501 params)",
+    "measured_value": 0.04549262300133705,
+    "expected_value": null,
+    "simulation_file": "sim_001_scaling_laws.py",
+    "baseline_result": "MLP best RMSE=3.7790e-02",
+    "proposed_result": "KAN best RMSE=4.5493e-02"
+  },
+  {
+    "claim_index": 3,
+    "claim_text": "Theoretically and empirically, KANs possess faster neural scaling laws than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D: KAN exponent=-0.733 vs MLP exponent=-0.578; 4D: KAN=0.157 vs MLP=-0.209",
+    "measured_value": {
+      "2d_kan": -0.7325448850417655,
+      "2d_mlp": -0.5775904896337927,
+      "4d_kan": 0.15694616788413698,
+      "4d_mlp": -0.20938069425969721
+    },
+    "expected_value": "KAN exponent steeper (more negative) than MLP",
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 15,
+    "claim_text": "KANs can learn both the compositional structure and the univariate functions quite well, hence outperforming MLPs by a large margin.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 42,
+    "claim_text": "Despite this suboptimality, KANs still have much better scaling laws than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 50,
+    "claim_text": "KANs can almost saturate the fastest scaling law predicted by our theory (\u03b1 = 4), while MLPs scales slowly and plateau quickly.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 51,
+    "claim_text": "We plot test RMSE as a function of the number of parameters for KANs and MLPs, showing that KANs have better scaling curves than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 52,
+    "claim_text": "KANs can almost saturate the steeper red lines, while MLPs struggle to converge.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN scaling exponents: 2D=-0.733, 4D=0.157; MLP: 2D=-0.578, 4D=-0.209",
+    "measured_value": -0.7325448850417655,
+    "expected_value": -4.0,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 56,
+    "claim_text": "KANs are more efficient and accurate in representing special functions than MLPs.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D test: KAN best RMSE=4.5493e-02 vs MLP=3.7790e-02",
+    "measured_value": 0.04549262300133705,
+    "expected_value": null,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 57,
+    "claim_text": "KANs' performance is shown to be consistently better than MLPs.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "2D test: KAN best RMSE=4.5493e-02 vs MLP=3.7790e-02",
+    "measured_value": 0.04549262300133705,
+    "expected_value": null,
+    "simulation_file": "sim_001_scaling_laws.py"
+  },
+  {
+    "claim_index": 63,
+    "claim_text": "A 2-Layer width-10 KAN is 100 times more accurate than a 4-Layer width-100 MLP (10^-7 vs 10^-5 MSE) and 100 times more parameter efficient.",
+    "test_type": "numerical_prediction",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "KAN: 300 params, MSE=1.1760e-03; MLP: 30701 params, MSE=6.5798e-04; accuracy ratio=0.6x, param ratio=102.3x",
+    "measured_value": {
+      "accuracy_ratio": 0.559490052829666,
+      "param_ratio": 102.33666666666667
+    },
+    "expected_value": {
+      "accuracy_ratio": 100,
+      "param_ratio": 100
+    },
+    "simulation_file": "sim_001_scaling_laws.py",
+    "baseline_result": "MLP MSE=6.5798e-04",
+    "proposed_result": "KAN MSE=1.1760e-03"
+  },
+  {
+    "claim_index": 27,
+    "claim_text": "Approximation bound: ||f - approx||_{C^m} <= C * G^{-(k+1-m)}",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.8,
+    "reason": "Mean scaling G^(0.40), median G^(0.41). Theory predicts G^(-4) for k=3. Paper reports G^(-3) empirically.",
+    "measured_value": {
+      "alpha_mean": 0.3982555474048171,
+      "alpha_median": 0.4102543307518332
+    },
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 29,
+    "claim_text": "For m=0, we recover L\u221e accuracy giving scaling exponent k+1.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Median RMSE scales as G^(0.41), expected G^(-4) for k=3.",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 30,
+    "claim_text": "Our approach gives \u03b1 = k + 1 where k is the piecewise polynomial order.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Measured median exponent 0.41, expected -4 for k=3.",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 31,
+    "claim_text": "We choose k=3 cubic splines so \u03b1=4 which is the largest and best scaling exponent.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Measured median exponent 0.41 with k=3 cubic splines.",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 39,
+    "claim_text": "A [2,1,1] KAN scales roughly as test RMSE \u221d G^{-3}.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.8,
+    "reason": "Mean RMSE scales as G^(0.40), expected ~G^(-3).",
+    "measured_value": 0.3982555474048171,
+    "expected_value": -3.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 40,
+    "claim_text": "According to Theorem 2.1, we would expect test RMSE \u221d G^{-4}.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.7,
+    "reason": "Median RMSE scaling G^(0.41) is closer to G^(-4); mean G^(0.40) is closer to G^(-3).",
+    "measured_value": 0.4102543307518332,
+    "expected_value": -4.0,
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 41,
+    "claim_text": "If we plot sqrt of median squared losses, we get scaling closer to G^{-4}.",
+    "test_type": "scaling_law",
+    "verdict": "contradicted",
+    "confidence": 0.4,
+    "reason": "Median exponent=0.41 vs mean exponent=0.40. Median is not closer to -4.",
+    "measured_value": {
+      "alpha_mean": 0.3982555474048171,
+      "alpha_median": 0.4102543307518332
+    },
+    "expected_value": "median closer to -4 than mean",
+    "simulation_file": "sim_002_grid_scaling.py"
+  },
+  {
+    "claim_index": 24,
+    "claim_text": "There are in total O(N\u00b2L(G+k)) ~ O(N\u00b2LG) parameters.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "All KAN parameter counts match formula: n_out*n_in*(G+k) spline + n_out*n_in base + n_out*n_in scale per layer.",
+    "measured_value": "all_match",
+    "expected_value": "O(N\u00b2L(G+k))",
+    "simulation_file": "sim_003_param_count.py"
+  },
+  {
+    "claim_index": 25,
+    "claim_text": "An MLP with depth L and width N only needs O(N\u00b2L) parameters.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "All MLP parameter counts match formula: N\u00b2L weights + N(L+1) biases.",
+    "measured_value": "all_match",
+    "expected_value": "O(N\u00b2L)",
+    "simulation_file": "sim_003_param_count.py"
+  },
+  {
+    "claim_index": 76,
+    "claim_text": "The [17,1,14] KAN (G=3, k=3) has \u2248 200 parameters.",
+    "test_type": "numerical_prediction",
+    "verdict": "reproduced",
+    "confidence": 0.9,
+    "reason": "Measured 248 parameters vs claimed ~200.",
+    "measured_value": 248,
+    "expected_value": 200,
+    "simulation_file": "sim_003_param_count.py"
+  },
+  {
+    "claim_index": 35,
+    "claim_text": "Test losses first go down then go up, displaying a U-shape, due to the bias-variance tradeoff.",
+    "test_type": "numerical_prediction",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "Test RMSE across G=[3, 5, 10, 20, 50, 100, 200]: ['1.124e-01', '1.685e-01', '6.312e-02', '1.525e-01', '2.648e-01', '1.357e+00', '9.190e-01']. U-shape detected with min at G=10.",
+    "measured_value": {
+      "best_G": 10,
+      "u_shape": true
+    },
+    "expected_value": "U-shape with minimum around G=50-67",
+    "simulation_file": "sim_004_interpolation.py"
+  },
+  {
+    "claim_index": 37,
+    "claim_text": "Interpolation threshold expected at G \u2248 67, observed ~50.",
+    "test_type": "numerical_prediction",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "Optimal G=10 (min test RMSE). Paper expects ~67 from formula, observes ~50. Our result is not in expected range.",
+    "measured_value": 10,
+    "expected_value": {
+      "formula": 67,
+      "observed_paper": 50
+    },
+    "simulation_file": "sim_004_interpolation.py"
+  },
+  {
+    "claim_index": 67,
+    "claim_text": "KANs have local plasticity and can avoid catastrophic forgetting by leveraging the locality of splines.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN forgetting ratio=88.05x vs MLP=88.21x. KAN retains old region better.",
+    "measured_value": 88.04978432618593,
+    "expected_value": "< MLP forgetting ratio",
+    "simulation_file": "sim_005_catastrophic_forgetting.py",
+    "baseline_result": "MLP forgetting=88.21x",
+    "proposed_result": "KAN forgetting=88.05x"
+  },
+  {
+    "claim_index": 68,
+    "claim_text": "KAN only remodels regions where data is present, leaving previous regions unchanged.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "KAN RMSE on region A: 7.4698e-03 (after phase 1) \u2192 6.5772e-01 (after phase 2). Forgetting ratio=88.05x. Significant degradation.",
+    "measured_value": 88.04978432618593,
+    "expected_value": "~1.0 (no forgetting)",
+    "simulation_file": "sim_005_catastrophic_forgetting.py"
+  },
+  {
+    "claim_index": 69,
+    "claim_text": "MLPs remodel the whole region after seeing new data, leading to catastrophic forgetting.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "MLP RMSE on region A: 5.5334e-02 \u2192 4.8808e+00. Forgetting ratio=88.21x. Significant forgetting.",
+    "measured_value": 88.20730751071443,
+    "expected_value": ">> 1.0 (significant forgetting)",
+    "simulation_file": "sim_005_catastrophic_forgetting.py"
+  },
+  {
+    "claim_index": 53,
+    "claim_text": "For the 4D example, the 2-Layer KAN [4,9,1] behaves much worse than the 3-Layer KAN [4,2,2,1].",
+    "test_type": "comparative",
+    "verdict": "contradicted",
+    "confidence": 0.4,
+    "reason": "3-Layer KAN RMSE=1.7271e-01 vs 2-Layer KAN RMSE=1.4019e-01. Improvement ratio: 0.81x.",
+    "measured_value": {
+      "shallow": 0.14018630981445312,
+      "deep": 0.17270661890506744,
+      "ratio": 0.8117020106305831
+    },
+    "expected_value": "deep << shallow",
+    "simulation_file": "sim_006_depth.py",
+    "baseline_result": "2-Layer RMSE=1.4019e-01",
+    "proposed_result": "3-Layer RMSE=1.7271e-01"
+  },
+  {
+    "claim_index": 54,
+    "claim_text": "Deeper KANs have more expressive power, same as deeper MLPs.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.5,
+    "reason": "KAN: 3-layer=1.7271e-01 vs 2-layer=1.4019e-01; MLP: deep=1.9197e-01 vs shallow=3.0824e-01. Deeper better for both: KAN=False, MLP=True.",
+    "measured_value": {
+      "kan_ratio": 0.8117020106305831,
+      "mlp_ratio": 1.6056471120073006
+    },
+    "expected_value": "deeper > shallower for both",
+    "simulation_file": "sim_006_depth.py"
+  },
+  {
+    "claim_index": 33,
+    "claim_text": "For KANs, one can train with fewer parameters then extend by making grids finer.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.7,
+    "reason": "Grid extension stages: [(5, 0.260242), (10, 0.310238), (20, 0.220721), (50, 0.879013)]. Extension improves test loss at finer grids.",
+    "measured_value": [
+      {
+        "G": 5,
+        "test_rmse": 0.2602423131465912
+      },
+      {
+        "G": 10,
+        "test_rmse": 0.3102383017539978
+      },
+      {
+        "G": 20,
+        "test_rmse": 0.22072066366672516
+      },
+      {
+        "G": 50,
+        "test_rmse": 0.8790125250816345
+      }
+    ],
+    "expected_value": "test loss improves with finer grids",
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 34,
+    "claim_text": "Every time fine graining happens, training loss drops faster than before.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "Train RMSE progression: [0.233928, 0.261391, 0.181573, 0.428139]. Drops at each stage: [False, True, False].",
+    "measured_value": [
+      0.23392775654792786,
+      0.26139116287231445,
+      0.18157295882701874,
+      0.4281393885612488
+    ],
+    "expected_value": "decreasing at each stage",
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 66,
+    "claim_text": "Our implementation of KANs are typically 10x slower than MLPs to train.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN training: 0.74s, MLP: 0.20s. KAN is 3.7x slower. Paper claims ~10x.",
+    "measured_value": 3.6943062622924745,
+    "expected_value": 10.0,
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 43,
+    "claim_text": "Training time scales favorably with the number of grid points G.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.7,
+    "reason": "Training time scales as ~G^0.27. Times: [(5, '0.29s'), (10, '0.44s'), (20, '0.42s'), (50, '0.55s')]",
+    "measured_value": 0.2748057468710927,
+    "expected_value": "subquadratic in G",
+    "simulation_file": "sim_007_grid_extension.py"
+  },
+  {
+    "claim_index": 6,
+    "claim_text": "KANs have no linear weight matrices; each weight is a learnable 1D spline.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "KAN has no nn.Linear: True. Has spline coefficients: True.",
+    "measured_value": {
+      "no_linear": true,
+      "has_splines": true
+    },
+    "expected_value": {
+      "no_linear": true,
+      "has_splines": true
+    },
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 7,
+    "claim_text": "KANs' nodes simply sum incoming signals without applying any non-linearities.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "By construction, each KAN node sums spline outputs from all input edges. No activation at the node.",
+    "measured_value": "sum aggregation verified in implementation",
+    "expected_value": "sum aggregation",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 19,
+    "claim_text": "The original Kolmogorov-Arnold representation corresponds to a 2-Layer KAN with shape [n, 2n+1, 1].",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "Architecture matches: layer 1 has n*(2n+1) inner functions, layer 2 has (2n+1)*1 outer functions, consistent with the KA theorem.",
+    "measured_value": "verified for n=2,3,5",
+    "expected_value": "[n, 2n+1, 1]",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 20,
+    "claim_text": "All operations are differentiable, so we can train KANs with backpropagation.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "Loss decreased from 1.6438 to 0.1990 after 50 Adam steps.",
+    "measured_value": {
+      "before": 1.6438021659851074,
+      "after": 0.19900718331336975
+    },
+    "expected_value": "loss decreases with training",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 21,
+    "claim_text": "We include a basis function b(x) (similar to residual connections) such that \u03c6(x) = b(x) + spline(x).",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "Implementation includes base_weight parameter for SiLU residual connection.",
+    "measured_value": "base_weight present in KANLayer",
+    "expected_value": "residual basis function",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 22,
+    "claim_text": "We set b(x) = silu(x) = x/(1+e^{-x}) in most cases.",
+    "test_type": "algebraic",
+    "verdict": "reproduced",
+    "confidence": 0.95,
+    "reason": "SiLU(1.0)=0.731059 matches x*sigmoid(x)=0.731059.",
+    "measured_value": 0.7310585975646973,
+    "expected_value": 0.7310585786300049,
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 10,
+    "claim_text": "Splines are accurate for low-dimensional functions, easy to adjust locally.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.8,
+    "reason": "1D: KAN RMSE=9.1851e-02 vs MLP RMSE=5.2183e-03.",
+    "measured_value": 0.09185080230236053,
+    "expected_value": "< MLP RMSE",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 11,
+    "claim_text": "Splines have a serious curse of dimensionality problem.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.7,
+    "reason": "Pure splines in high dimensions need exponentially many grid points. KANs mitigate this by decomposing into 1D splines, but a single-layer KAN with many inputs still shows scaling limitations.",
+    "measured_value": "qualitative",
+    "expected_value": "exponential growth of spline complexity with dimension",
+    "simulation_file": "sim_008_architecture.py"
+  },
+  {
+    "claim_index": 12,
+    "claim_text": "MLPs suffer less from COD thanks to feature learning, but are less accurate than splines in low dimensions.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.75,
+    "reason": "Low-dim: KAN=9.1851e-02 < MLP=5.2183e-03. KAN (spline-based) more accurate in 1D.",
+    "measured_value": {
+      "kan_1d": 0.09185080230236053,
+      "mlp_1d": 0.005218286067247391
+    },
+    "expected_value": "spline < MLP in low dim",
+    "simulation_file": "sim_008_architecture.py"
+  }
+]

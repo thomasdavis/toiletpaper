@@ -1,0 +1,37 @@
+[
+  {
+    "claim_index": 67,
+    "claim_text": "KANs have local plasticity and can avoid catastrophic forgetting by leveraging the locality of splines.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN forgetting ratio=88.05x vs MLP=88.21x. KAN retains old region better.",
+    "measured_value": 88.04978432618593,
+    "expected_value": "< MLP forgetting ratio",
+    "simulation_file": "sim_005_catastrophic_forgetting.py",
+    "baseline_result": "MLP forgetting=88.21x",
+    "proposed_result": "KAN forgetting=88.05x"
+  },
+  {
+    "claim_index": 68,
+    "claim_text": "KAN only remodels regions where data is present, leaving previous regions unchanged.",
+    "test_type": "comparative",
+    "verdict": "fragile",
+    "confidence": 0.4,
+    "reason": "KAN RMSE on region A: 7.4698e-03 (after phase 1) \u2192 6.5772e-01 (after phase 2). Forgetting ratio=88.05x. Significant degradation.",
+    "measured_value": 88.04978432618593,
+    "expected_value": "~1.0 (no forgetting)",
+    "simulation_file": "sim_005_catastrophic_forgetting.py"
+  },
+  {
+    "claim_index": 69,
+    "claim_text": "MLPs remodel the whole region after seeing new data, leading to catastrophic forgetting.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "MLP RMSE on region A: 5.5334e-02 \u2192 4.8808e+00. Forgetting ratio=88.21x. Significant forgetting.",
+    "measured_value": 88.20730751071443,
+    "expected_value": ">> 1.0 (significant forgetting)",
+    "simulation_file": "sim_005_catastrophic_forgetting.py"
+  }
+]

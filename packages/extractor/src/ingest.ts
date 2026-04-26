@@ -51,10 +51,10 @@ function buildClaimStatements(
 ): AssertInput[] {
   const stmts: AssertInput[] = [
     { subject: claimIri, predicate: "rdf:type", object_iri: "tp:Claim", context: ctx },
-    { subject: claimIri, predicate: "tp:claimText", object_lit: { v: claim.text, dt: "xsd:string" }, context: ctx },
+    { subject: claimIri, predicate: "tp:claimText", object_lit: { v: claim.text ?? "", dt: "xsd:string" }, context: ctx },
     { subject: claimIri, predicate: "tp:extractedFrom", object_iri: paperIri, context: ctx },
-    { subject: claimIri, predicate: "tp:category", object_lit: { v: claim.category, dt: "xsd:string" }, context: ctx },
-    { subject: claimIri, predicate: "tp:evidence", object_lit: { v: claim.evidence, dt: "xsd:string" }, context: ctx },
+    { subject: claimIri, predicate: "tp:category", object_lit: { v: claim.category ?? "unknown", dt: "xsd:string" }, context: ctx },
+    { subject: claimIri, predicate: "tp:evidence", object_lit: { v: claim.evidence ?? "", dt: "xsd:string" }, context: ctx },
   ];
 
   if (claim.predicate) {
@@ -187,11 +187,12 @@ export async function ingestPaperIntoDonto(
 
   // ── 10. Set confidence overlay (→ "confidence_rated") ─────────────────
   for (const [claimIri, claim] of claimMap) {
-    if (claim.confidence == null) continue;
+    const conf = claim.confidence;
+    if (conf == null || typeof conf !== "number" || isNaN(conf)) continue;
     const ids = claimStmtIds[claimIri];
     if (!ids?.length) continue;
     for (const stmtId of ids) {
-      try { await setConfidence(stmtId, claim.confidence, runId); }
+      try { await setConfidence(stmtId, conf, runId); }
       catch (_e) { /* dup */ }
     }
   }
@@ -225,7 +226,7 @@ export async function ingestPaperIntoDonto(
       const ids = claimStmtIds[claimIri];
       if (ids?.length) {
         try {
-          await linkEvidenceSpan(ids[0], spanId, claim.confidence, paperCtx);
+          await linkEvidenceSpan(ids[0], spanId, claim.confidence ?? null, paperCtx);
           evidenceLinkCount++;
         } catch (_e) { /* dup link */ }
       }
