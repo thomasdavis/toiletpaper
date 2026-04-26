@@ -1,0 +1,85 @@
+[
+  {
+    "claim_index": 83,
+    "claim_text": "A [2,1,1] KAN scales roughly as test RMSE \u221d G^{-3}.",
+    "test_type": "scaling_law",
+    "verdict": "fragile",
+    "confidence": 0.6,
+    "reason": "Mean RMSE scales as G^(-1.491), R\u00b2=0.377. Paper claims ~G^(-3). Does not match.",
+    "measured_value": -1.4910158352830072,
+    "expected_value": -3.0,
+    "simulation_file": "sim_full_verification.py"
+  },
+  {
+    "claim_index": 84,
+    "claim_text": "If we plot sqrt of median squared losses, we get scaling closer to G^{-4}.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "Median scaling G^(-1.843) vs mean G^(-1.491). Median is steeper than mean.",
+    "measured_value": -1.8426219923597758,
+    "expected_value": -4.0,
+    "simulation_file": "sim_full_verification.py"
+  },
+  {
+    "claim_index": 62,
+    "claim_text": "A 2-Layer width-10 KAN is 100 times more accurate than a 4-Layer width-100 MLP (10^-7 vs 10^-5 MSE).",
+    "test_type": "numerical_prediction",
+    "verdict": "contradicted",
+    "confidence": 0.8,
+    "reason": "KAN MSE=1.24e-04 (450 params), MLP MSE=1.73e-04 (30701 params). Accuracy ratio=1.4x (paper claims 100x). Param ratio=68.2x (paper claims 100x). Note: paper uses Poisson PDE; we test on smooth 2D function.",
+    "measured_value": 1.3983784598842468,
+    "expected_value": 100.0,
+    "simulation_file": "sim_full_verification.py"
+  },
+  {
+    "claim_index": 68,
+    "claim_text": "KANs have local plasticity and can avoid catastrophic forgetting by leveraging the locality of splines.",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "KAN forgetting ratio=3.2x (RMSE on region A degraded 3.2-fold). MLP forgetting=171.5x. Paper claims 'perfectly avoid' forgetting, which means ratio \u2248 1. KAN preserves better than MLP.",
+    "measured_value": 3.2148883305787224,
+    "expected_value": 1.0,
+    "simulation_file": "sim_full_verification.py"
+  },
+  {
+    "claim_index": 66,
+    "claim_text": "Our implementation of KANs are typically 10x slower than MLPs to train.",
+    "test_type": "numerical_prediction",
+    "verdict": "fragile",
+    "confidence": 0.7,
+    "reason": "KAN is 3.7x slower than MLP (paper claims ~10x). KAN: 2.02s (225 params), MLP: 0.54s (2751 params). The ratio depends on architecture size; paper's 10x is for their specific setup.",
+    "measured_value": 3.745864034847066,
+    "expected_value": 10.0,
+    "simulation_file": "sim_full_verification.py"
+  },
+  {
+    "claim_index": 74,
+    "claim_text": "For the 4D example, the 2-Layer KAN [4,9,1] behaves much worse than the 3-Layer KAN [4,2,2,1].",
+    "test_type": "comparative",
+    "verdict": "reproduced",
+    "confidence": 0.8,
+    "reason": "Deep [4,2,2,1] RMSE=6.9746e-02 vs Shallow [4,9,1] RMSE=2.3185e-01. Deep is better than shallow. Paper claims deep is much better.",
+    "measured_value": 0.0697464719414711,
+    "expected_value": "< 2.3185e-01",
+    "simulation_file": "sim_full_verification.py"
+  },
+  {
+    "claim_index": 8,
+    "claim_text": "Theoretically and empirically, KANs possess faster neural scaling laws than MLPs.",
+    "test_type": "scaling_law",
+    "verdict": "reproduced",
+    "confidence": 0.75,
+    "reason": "KAN scaling exponent \u03b1=-1.086 (R\u00b2=0.773), MLP \u03b1=-0.526 (R\u00b2=0.992). Paper claims KAN \u03b1\u22484, MLP \u03b1\u22641. KAN scaling is faster than MLP.",
+    "measured_value": {
+      "kan_alpha": -1.0859117818781308,
+      "mlp_alpha": -0.5256296677658595
+    },
+    "expected_value": {
+      "kan_alpha": -4.0,
+      "mlp_alpha": -1.0
+    },
+    "simulation_file": "sim_full_verification.py"
+  }
+]
