@@ -1,0 +1,98 @@
+/*
+ * toiletpaper design tokens — CSS custom properties.
+ * Import into globals.css: @import "@toiletpaper/ui/src/theme.css";
+ */
+
+:root {
+  /* ---- Backgrounds ---- */
+  --color-paper: #FAFAF8;
+  --color-paper-warm: #F5F3EF;
+  --color-white: #FFFFFF;
+
+  /* ---- Text ---- */
+  --color-ink: #1A1A1A;
+  --color-ink-light: #3D3D3D;
+  --color-ink-muted: #6B6B6B;
+  --color-ink-faint: #9B9B9B;
+
+  /* ---- Borders / Rules ---- */
+  --color-rule: #D4D0C8;
+  --color-rule-faint: #E8E5DE;
+  --color-rule-strong: #B0ADA6;
+
+  /* ---- Primary ---- */
+  --color-primary: #4A6FA5;
+  --color-primary-light: #6B8FBF;
+  --color-primary-faint: #E8EEF5;
+  --color-primary-dark: #3A5A87;
+
+  /* ---- Verdict states ---- */
+  --color-reproduced: #2D6A4F;
+  --color-reproduced-light: #D4EDE1;
+  --color-contradicted: #9B2226;
+  --color-contradicted-light: #F5D5D6;
+  --color-fragile: #B07D2B;
+  --color-fragile-light: #F5ECD4;
+  --color-undetermined: #6B6B6B;
+  --color-undetermined-light: #E8E5DE;
+  --color-not-simulable: #8B8589;
+  --color-not-simulable-light: #EDEBEC;
+
+  /* ---- Semantic ---- */
+  --color-info: #4A6FA5;
+  --color-info-light: #E8EEF5;
+  --color-success: #2D6A4F;
+  --color-success-light: #D4EDE1;
+  --color-warning: #B07D2B;
+  --color-warning-light: #F5ECD4;
+  --color-error: #9B2226;
+  --color-error-light: #F5D5D6;
+
+  /* ---- Typography ---- */
+  --font-serif: Georgia, "Times New Roman", Times, serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+  --text-5xl: 48px;
+
+  /* ---- Spacing (4px base) ---- */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ---- Radii ---- */
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* ---- Shadows ---- */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-medium: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* ---- Borders ---- */
+  --border-hairline: 0.5px solid var(--color-rule);
+  --border-thin: 1px solid var(--color-rule);
+  --border-medium: 2px solid var(--color-rule);
+}

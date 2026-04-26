@@ -1,10 +1,11 @@
 @import "tailwindcss";
+@import "@toiletpaper/ui/src/theme.css";
 
 @theme {
-  --color-surface: #fafaf9;
-  --color-primary: #1e40af;
-  --color-accent: #f59e0b;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-muted: #6b7280;
+  --color-surface: #FAFAF8;
+  --color-primary: #4A6FA5;
+  --color-accent: #B07D2B;
+  --color-danger: #9B2226;
+  --color-success: #2D6A4F;
+  --color-muted: #6B6B6B;
 }

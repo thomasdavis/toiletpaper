@@ -30,6 +30,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
               Upload
             </Link>
+            <Link
+              href="/styleguide"
+              className="text-sm text-muted hover:text-stone-900"
+            >
+              Styleguide
+            </Link>
           </div>
         </nav>
         <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
