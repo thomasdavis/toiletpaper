@@ -17,6 +17,7 @@ import {
   EmptyState,
 } from "@toiletpaper/ui";
 import { HelpTip } from "@/components/help-tip";
+import { DebugPanel } from "@/components/debug-panel";
 
 export default async function PaperDetailPage({
   params,
@@ -99,6 +100,35 @@ export default async function PaperDetailPage({
                 </button>
               </Link>
             )}
+            {sims.length > 0 && (
+              <Link href={`/papers/${id}/simulations`}>
+                <button className="inline-flex h-12 items-center gap-2.5 rounded-md border border-[#E8E5DE] bg-white px-8 text-base font-medium text-[#3D3D3D] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
+                  View Simulations ({sims.length})
+                </button>
+              </Link>
+            )}
+          </div>
+
+          {/* Sub-navigation */}
+          <div className="mt-4 flex gap-1 border-b border-[#E8E5DE]">
+            <Link href={`/papers/${id}`} className="border-b-2 border-[#1A1A1A] px-4 py-2.5 text-sm font-medium text-[#1A1A1A]">
+              Overview
+            </Link>
+            {sims.length > 0 && (
+              <Link href={`/papers/${id}/report`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
+                Report
+              </Link>
+            )}
+            {paper.pdfUrl && (
+              <Link href={`/papers/${id}/annotated`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
+                Annotated
+              </Link>
+            )}
+            {sims.length > 0 && (
+              <Link href={`/papers/${id}/simulations`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
+                Simulations
+              </Link>
+            )}
           </div>
         </div>
 
@@ -134,6 +164,11 @@ export default async function PaperDetailPage({
         </Stack>
 
         <DontoDetails paperId={id} />
+
+        {/* Debug panels */}
+        <DebugPanel label="Paper" data={paper} />
+        <DebugPanel label="Claims" data={paperClaims} />
+        <DebugPanel label="Donto History" data={dontoHistory} />
       </Stack>
     </Container>
   );

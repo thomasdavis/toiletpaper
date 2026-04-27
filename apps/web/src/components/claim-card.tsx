@@ -15,6 +15,7 @@ import { getHistory } from "@/lib/donto";
 import { CollapsibleDetails } from "./collapsible-details";
 import { ClaimDontoInspect } from "./claim-donto-inspect";
 import { HelpTip } from "@/components/help-tip";
+import { DebugPanel } from "./debug-panel";
 
 interface Claim {
   id: string;
@@ -343,6 +344,9 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
                         </Stack>
                       </CollapsibleDetails>
                     ) : null}
+
+                    {/* Debug panel for individual simulation */}
+                    <DebugPanel label="Simulation Result" data={sim} />
                   </Stack>
                 </div>
               );
@@ -350,6 +354,14 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
           </Stack>
         </div>
       )}
+
+      {/* Debug panels */}
+      <div className="px-5 pb-4">
+        <Stack gap={2}>
+          <DebugPanel label="Claim Data" data={claim} />
+          <DebugPanel label="Donto Data" data={dontoData} />
+        </Stack>
+      </div>
     </Card>
   );
 }

@@ -14,6 +14,7 @@ import {
   StatCard,
 } from "@toiletpaper/ui";
 import { HelpTip } from "@/components/help-tip";
+import { DebugPanel } from "@/components/debug-panel";
 
 export default async function DashboardPage() {
   let stats = { papers: 0, claims: 0, simulations: 0 };
@@ -148,6 +149,10 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
+        {/* Debug panels */}
+        <DebugPanel label="Stats" data={stats} />
+        <DebugPanel label="Donto Contexts" data={ctxData} />
+        <DebugPanel label="Obligations" data={oblData} />
       </div>
     </Container>
   );

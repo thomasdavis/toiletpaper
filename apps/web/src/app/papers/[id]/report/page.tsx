@@ -12,6 +12,7 @@ import {
 } from "@toiletpaper/ui";
 import { ReportTabs } from "@/components/report-tabs";
 import { HelpTip } from "@/components/help-tip";
+import { DebugPanel } from "@/components/debug-panel";
 
 type Simulation = typeof simulations.$inferSelect;
 
@@ -222,6 +223,10 @@ export default async function ReportPage({
 
         {/* Tabbed claim view */}
         <ReportTabs claims={reportClaims} counts={counts} />
+
+        {/* Debug panels */}
+        <DebugPanel label="Report Claims" data={reportClaims} />
+        <DebugPanel label="Simulations" data={sims} />
 
         {/* Footer */}
         <Divider />
