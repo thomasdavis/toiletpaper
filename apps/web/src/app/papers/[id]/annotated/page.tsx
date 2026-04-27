@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq, asc } from "drizzle-orm";
@@ -6,6 +9,8 @@ import Link from "next/link";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Container } from "@toiletpaper/ui";
+import { parseGs, getObject } from "@/lib/storage";
+import { PaperTabs } from "@/components/paper-tabs";
 import {
   AnnotatedPaper,
   type AnnotatedClaim,
@@ -54,10 +59,41 @@ function extractResult(result: unknown) {
   };
 }
 
+async function decodeContent(
+  content: Buffer,
+  ext: string,
+): Promise<{ text: string; format: "markdown" | "plaintext" } | null> {
+  if (ext === "md" || ext === "markdown") {
+    return { text: content.toString("utf-8"), format: "markdown" };
+  }
+  if (ext === "pdf") {
+    try {
+      const { extractTextFromPdf } = await import("@toiletpaper/extractor");
+      const pdf = await extractTextFromPdf(content);
+      return { text: pdf.text, format: "plaintext" };
+    } catch {
+      return null;
+    }
+  }
+  return { text: content.toString("utf-8"), format: "plaintext" };
+}
+
 async function loadPaperText(
   paper: { pdfUrl: string | null; title: string },
 ): Promise<{ text: string; format: "markdown" | "plaintext" } | null> {
   if (!paper.pdfUrl) return null;
+
+  // GCS-backed uploads — fetch via the metadata-server-authed helper.
+  const gs = parseGs(paper.pdfUrl);
+  if (gs) {
+    try {
+      const buf = await getObject(gs.bucket, gs.object);
+      const ext = gs.object.split(".").pop()?.toLowerCase() ?? "";
+      return await decodeContent(buf, ext);
+    } catch {
+      return null;
+    }
+  }
 
   const filename = paper.pdfUrl.split("/").pop() ?? "";
   const candidatePaths = [
@@ -71,21 +107,8 @@ async function loadPaperText(
     try {
       const content = await readFile(p);
       const ext = p.split(".").pop()?.toLowerCase() ?? "";
-      if (ext === "md" || ext === "markdown") {
-        return { text: content.toString("utf-8"), format: "markdown" };
-      }
-      if (ext === "pdf") {
-        try {
-          const { extractTextFromPdf } = await import(
-            "@toiletpaper/extractor"
-          );
-          const pdf = await extractTextFromPdf(content);
-          return { text: pdf.text, format: "plaintext" };
-        } catch {
-          continue;
-        }
-      }
-      return { text: content.toString("utf-8"), format: "plaintext" };
+      const decoded = await decodeContent(content, ext);
+      if (decoded) return decoded;
     } catch {
       continue;
     }
@@ -127,23 +150,21 @@ export default async function AnnotatedPage({
     return (
       <Container>
         <div className="space-y-6 py-4">
-          <nav className="flex items-center gap-2 text-sm text-[#9B9B9B]">
-            <Link href="/" className="hover:text-[#1A1A1A]">
-              Dashboard
-            </Link>
-            <span>/</span>
-            <Link href="/papers" className="hover:text-[#1A1A1A]">
-              Papers
-            </Link>
-            <span>/</span>
-            <Link href={`/papers/${id}`} className="hover:text-[#1A1A1A]">
-              {paper.title.length > 50
-                ? paper.title.slice(0, 50) + "..."
-                : paper.title}
-            </Link>
-            <span>/</span>
-            <span className="text-[#1A1A1A]">Annotated View</span>
-          </nav>
+          <div>
+            <h1 className="font-serif text-3xl font-bold tracking-tight text-[#1A1A1A]">
+              {paper.title}
+            </h1>
+            <p className="mt-2 text-sm text-[#6B6B6B]">Annotated view</p>
+          </div>
+
+          <PaperTabs
+            paperId={id}
+            active="annotated"
+            hasPdf={Boolean(paper.pdfUrl)}
+            hasSims={sims.length > 0}
+            counts={{ claims: paperClaims.length, simulations: sims.length }}
+          />
+
           <div className="rounded-lg border border-[#E8E5DE] bg-white p-12 text-center">
             <p className="text-[#9B9B9B]">
               Paper text is not available. Upload a markdown or PDF file to view
@@ -198,31 +219,12 @@ export default async function AnnotatedPage({
 
   return (
     <div className="min-h-screen">
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-[1400px] px-4">
-        <nav className="flex items-center gap-2 py-4 text-sm text-[#9B9B9B]">
-          <Link href="/" className="hover:text-[#1A1A1A]">
-            Dashboard
-          </Link>
-          <span>/</span>
-          <Link href="/papers" className="hover:text-[#1A1A1A]">
-            Papers
-          </Link>
-          <span>/</span>
-          <Link href={`/papers/${id}`} className="hover:text-[#1A1A1A]">
-            {paper.title.length > 50
-              ? paper.title.slice(0, 50) + "..."
-              : paper.title}
-          </Link>
-          <span>/</span>
-          <span className="text-[#1A1A1A]">Annotated View</span>
-        </nav>
-
+      <div className="mx-auto max-w-[1400px] px-4 pt-4">
         {/* Header */}
-        <div className="mb-4 border-b border-[#E8E5DE] pb-4">
-          <div className="flex items-start justify-between">
+        <div className="mb-4">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="font-serif text-xl font-bold text-[#1A1A1A]">
+              <h1 className="font-serif text-2xl font-bold text-[#1A1A1A]">
                 {paper.title}
               </h1>
               {paper.authors && paper.authors.length > 0 && (
@@ -231,16 +233,20 @@ export default async function AnnotatedPage({
                 </p>
               )}
             </div>
-            <Link
-              href={`/papers/${id}/report`}
-              className="shrink-0 rounded-md border border-[#E8E5DE] bg-white px-4 py-2 text-sm font-medium text-[#3D3D3D] transition-colors hover:bg-[#F5F3EF]"
-            >
-              View Full Report
-            </Link>
           </div>
+        </div>
 
+        <PaperTabs
+          paperId={id}
+          active="annotated"
+          hasPdf={Boolean(paper.pdfUrl)}
+          hasSims={sims.length > 0}
+          counts={{ claims: paperClaims.length, simulations: sims.length }}
+        />
+
+        <div className="mb-4">
           {/* Mini verdict summary bar */}
-          <div className="mt-3 flex items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center gap-4 text-xs">
             {counts.reproduced > 0 && (
               <span className="flex items-center gap-1.5">
                 <span

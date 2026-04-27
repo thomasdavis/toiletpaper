@@ -1,8 +1,10 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import {
   Container,
   Heading,
@@ -13,6 +15,7 @@ import {
 import { ReportTabs } from "@/components/report-tabs";
 import { HelpTip } from "@/components/help-tip";
 import { DebugPanel } from "@/components/debug-panel";
+import { PaperTabs } from "@/components/paper-tabs";
 
 type Simulation = typeof simulations.$inferSelect;
 
@@ -153,21 +156,8 @@ export default async function ReportPage({
   return (
     <Container>
       <div className="space-y-6 py-4">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-[#9B9B9B]">
-          <Link href="/" className="hover:text-[#1A1A1A]">Dashboard</Link>
-          <span>/</span>
-          <Link href="/papers" className="hover:text-[#1A1A1A]">Papers</Link>
-          <span>/</span>
-          <Link href={`/papers/${id}`} className="hover:text-[#1A1A1A]">
-            {paper.title.length > 50 ? paper.title.slice(0, 50) + "…" : paper.title}
-          </Link>
-          <span>/</span>
-          <span className="text-[#1A1A1A]">Report</span>
-        </nav>
-
         {/* Header */}
-        <div className="border-b border-[#E8E5DE] pb-6">
+        <div>
           <Heading level={1}>{paper.title}</Heading>
           {paper.authors && paper.authors.length > 0 && (
             <p className="mt-2 text-[#6B6B6B]">{paper.authors.join(", ")}</p>
@@ -175,6 +165,14 @@ export default async function ReportPage({
           <p className="mt-3 font-serif text-lg text-[#3D3D3D]">Toiletpaper Analysis Report</p>
           <p className="mt-1 text-sm text-[#9B9B9B]">{analysisDate}</p>
         </div>
+
+        <PaperTabs
+          paperId={id}
+          active="report"
+          hasPdf={Boolean(paper.pdfUrl)}
+          hasSims={sims.length > 0}
+          counts={{ claims: paperClaims.length, simulations: sims.length }}
+        />
 
         {/* Verdict legend */}
         <div className="flex items-start gap-2 rounded-lg border border-[#E8E5DE] bg-[#FAFAF8] px-4 py-3 text-[13px] leading-relaxed text-[#6B6B6B]">

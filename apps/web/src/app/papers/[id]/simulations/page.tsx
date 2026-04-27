@@ -8,6 +8,7 @@ import {
 } from "@toiletpaper/ui";
 import { SimulationsTable } from "./simulations-table";
 import { DebugPanel } from "@/components/debug-panel";
+import { PaperTabs } from "@/components/paper-tabs";
 
 function mapVerdict(verdict: string | null, metadata?: unknown) {
   if (metadata && typeof metadata === "object") {
@@ -99,34 +100,22 @@ export default async function SimulationsListPage({
         </nav>
 
         {/* Header */}
-        <div className="border-b border-[#E8E5DE] pb-6">
+        <div>
           <h1 className="font-serif text-3xl font-bold tracking-tight text-[#1A1A1A]">
-            Simulations
+            {paper.title}
           </h1>
           <p className="mt-2 text-sm text-[#6B6B6B]">
-            {rows.length} simulation{rows.length !== 1 ? "s" : ""} for {paper.title}
+            Simulations · {rows.length} run{rows.length !== 1 ? "s" : ""}
           </p>
         </div>
 
-        {/* Sub-navigation */}
-        <div className="flex gap-1 border-b border-[#E8E5DE]">
-          <Link href={`/papers/${id}`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
-            Overview
-          </Link>
-          {sims.length > 0 && (
-            <Link href={`/papers/${id}/report`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
-              Report
-            </Link>
-          )}
-          {paper.pdfUrl && (
-            <Link href={`/papers/${id}/annotated`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
-              Annotated
-            </Link>
-          )}
-          <Link href={`/papers/${id}/simulations`} className="border-b-2 border-[#1A1A1A] px-4 py-2.5 text-sm font-medium text-[#1A1A1A]">
-            Simulations
-          </Link>
-        </div>
+        <PaperTabs
+          paperId={id}
+          active="simulations"
+          hasPdf={Boolean(paper.pdfUrl)}
+          hasSims={sims.length > 0}
+          counts={{ claims: paperClaims.length, simulations: sims.length }}
+        />
 
         {/* Summary stats */}
         <div className="grid grid-cols-4 gap-4">

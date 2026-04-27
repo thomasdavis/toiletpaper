@@ -1,8 +1,10 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { PaperStatusBadge } from "@/components/paper-status-badge";
 import { ClaimCard } from "@/components/claim-card";
 import { DontoContextInfo } from "@/components/donto-context-info";
@@ -16,8 +18,8 @@ import {
   Stack,
   EmptyState,
 } from "@toiletpaper/ui";
-import { HelpTip } from "@/components/help-tip";
 import { DebugPanel } from "@/components/debug-panel";
+import { PaperTabs } from "@/components/paper-tabs";
 
 export default async function PaperDetailPage({
   params,
@@ -80,57 +82,15 @@ export default async function PaperDetailPage({
               {paper.abstract}
             </Text>
           )}
-
-          {/* Action buttons */}
-          <div className="mt-5 flex items-center gap-3">
-            {sims.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Link href={`/papers/${id}/report`}>
-                  <button className="inline-flex h-12 items-center gap-2.5 rounded-md bg-[#4A6FA5] px-8 text-base font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
-                    View Analysis Report
-                  </button>
-                </Link>
-                <HelpTip text="The report shows every claim with its simulation verdict, measured vs expected values, and the reason for each judgment." />
-              </div>
-            )}
-            {paper.pdfUrl && (
-              <Link href={`/papers/${id}/annotated`}>
-                <button className="inline-flex h-12 items-center gap-2.5 rounded-md border border-[#E8E5DE] bg-white px-8 text-base font-medium text-[#3D3D3D] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
-                  Annotated View
-                </button>
-              </Link>
-            )}
-            {sims.length > 0 && (
-              <Link href={`/papers/${id}/simulations`}>
-                <button className="inline-flex h-12 items-center gap-2.5 rounded-md border border-[#E8E5DE] bg-white px-8 text-base font-medium text-[#3D3D3D] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
-                  View Simulations ({sims.length})
-                </button>
-              </Link>
-            )}
-          </div>
-
-          {/* Sub-navigation */}
-          <div className="mt-4 flex gap-1 border-b border-[#E8E5DE]">
-            <Link href={`/papers/${id}`} className="border-b-2 border-[#1A1A1A] px-4 py-2.5 text-sm font-medium text-[#1A1A1A]">
-              Overview
-            </Link>
-            {sims.length > 0 && (
-              <Link href={`/papers/${id}/report`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
-                Report
-              </Link>
-            )}
-            {paper.pdfUrl && (
-              <Link href={`/papers/${id}/annotated`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
-                Annotated
-              </Link>
-            )}
-            {sims.length > 0 && (
-              <Link href={`/papers/${id}/simulations`} className="px-4 py-2.5 text-sm font-medium text-[#9B9B9B] hover:text-[#3D3D3D]">
-                Simulations
-              </Link>
-            )}
-          </div>
         </div>
+
+        <PaperTabs
+          paperId={id}
+          active="overview"
+          hasPdf={Boolean(paper.pdfUrl)}
+          hasSims={sims.length > 0}
+          counts={{ claims: paperClaims.length, simulations: sims.length }}
+        />
 
         {paperCtx && (
           <DontoContextInfo
