@@ -14,6 +14,7 @@ import type { simulations } from "@toiletpaper/db";
 import { getHistory } from "@/lib/donto";
 import { CollapsibleDetails } from "./collapsible-details";
 import { ClaimDontoInspect } from "./claim-donto-inspect";
+import { HelpTip } from "@/components/help-tip";
 
 interface Claim {
   id: string;
@@ -143,6 +144,7 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
           <div className="mt-3">
             <Stack direction="horizontal" align="center" gap={2}>
               <Label size="xs">Confidence</Label>
+              <HelpTip text="How confident the extraction model (GPT-5.4) is that this is a genuine testable claim from the paper." />
               <ProgressBar
                 value={conf * 100}
                 color={conf >= 0.9 ? "success" : conf >= 0.7 ? "warning" : "error"}
@@ -210,7 +212,10 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
                   <Stack gap={3}>
                     {/* Header: verdict + method */}
                     <Stack direction="horizontal" align="center" justify="between">
-                      <VerdictBadge verdict={verdict} />
+                      <Stack direction="horizontal" align="center" gap={1}>
+                        <VerdictBadge verdict={verdict} />
+                        <HelpTip text="Based on independent simulation — not the paper's own evaluation." />
+                      </Stack>
                       <Text size="xs" color="muted">
                         {formatMethodName(sim.method)}
                       </Text>

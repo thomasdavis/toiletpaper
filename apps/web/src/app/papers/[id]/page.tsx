@@ -16,6 +16,7 @@ import {
   Stack,
   EmptyState,
 } from "@toiletpaper/ui";
+import { HelpTip } from "@/components/help-tip";
 
 export default async function PaperDetailPage({
   params,
@@ -82,11 +83,14 @@ export default async function PaperDetailPage({
           {/* Action buttons */}
           <div className="mt-5 flex items-center gap-3">
             {sims.length > 0 && (
-              <Link href={`/papers/${id}/report`}>
-                <button className="inline-flex h-12 items-center gap-2.5 rounded-md bg-[#4A6FA5] px-8 text-base font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
-                  View Analysis Report
-                </button>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href={`/papers/${id}/report`}>
+                  <button className="inline-flex h-12 items-center gap-2.5 rounded-md bg-[#4A6FA5] px-8 text-base font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
+                    View Analysis Report
+                  </button>
+                </Link>
+                <HelpTip text="The report shows every claim with its simulation verdict, measured vs expected values, and the reason for each judgment." />
+              </div>
             )}
             {paper.pdfUrl && (
               <Link href={`/papers/${id}/annotated`}>

@@ -8,6 +8,7 @@ import {
   Code,
   Divider,
 } from "@toiletpaper/ui";
+import { HelpTip } from "@/components/help-tip";
 
 interface Props {
   contextIri: string;
@@ -47,7 +48,10 @@ export function DontoContextInfo({
             <Code>{contextIri}</Code>
           </div>
           <div>
-            <Label>Kind</Label>
+            <div className="flex items-center gap-1">
+              <Label>Kind</Label>
+              <HelpTip text="candidate = claims awaiting verification. source = verified claims. hypothesis = speculative claims being tested." />
+            </div>
             <p>
               <Badge
                 variant={kind === "candidate" ? "warning" : "default"}

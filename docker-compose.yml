@@ -3,7 +3,7 @@ services:
     image: postgres:16
     container_name: toiletpaper-pg
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: toiletpaper
       POSTGRES_PASSWORD: toiletpaper

@@ -6,7 +6,7 @@ docker compose up -d
 
 echo "==> Waiting for primary Postgres..."
 until docker exec toiletpaper-pg pg_isready -U toiletpaper -d toiletpaper >/dev/null 2>&1; do sleep 1; done
-echo "    Primary Postgres is ready (port 5432)"
+echo "    Primary Postgres is ready (port 5434)"
 
 echo "==> Waiting for donto Postgres..."
 until docker exec toiletpaper-donto-pg pg_isready -U donto -d donto >/dev/null 2>&1; do sleep 1; done

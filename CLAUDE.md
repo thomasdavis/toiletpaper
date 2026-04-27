@@ -27,7 +27,7 @@ cd ../donto && DONTO_DSN=postgres://donto:donto@127.0.0.1:55433/donto DONTO_BIND
 
 ## Databases
 
-- Primary Postgres on port 5432 — toiletpaper's relational data (papers, claims, simulations)
+- Primary Postgres on port 5434 — toiletpaper's relational data (papers, claims, simulations)
 - Donto Postgres on port 55433 — knowledge graph quad store (separate from donto's dev instance on 55432)
 - dontosrv on port 7879 (to avoid collision with donto's dev instance on 7878)
 

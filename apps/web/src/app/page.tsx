@@ -13,6 +13,7 @@ import {
   Heading,
   StatCard,
 } from "@toiletpaper/ui";
+import { HelpTip } from "@/components/help-tip";
 
 export default async function DashboardPage() {
   let stats = { papers: 0, claims: 0, simulations: 0 };
@@ -92,6 +93,7 @@ export default async function DashboardPage() {
           <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
             <span className="inline-block h-6 w-1 rounded-full bg-[#4A6FA5]" />
             <span className="font-serif">Donto Knowledge Graph</span>
+            <HelpTip text="Donto is a bitemporal knowledge graph that stores every extracted claim, its evidence chain, arguments, and lifecycle state. It tracks what we know, when we learned it, and how confident we are." />
           </h2>
           <div className="grid gap-5 sm:grid-cols-4">
             <div className={`rounded-lg border p-5 shadow-sm ${healthy ? "border-[#2D6A4F]/30 bg-[#D4EDE1]/30" : "border-[#9B2226]/30 bg-[#F5D5D6]/30"}`}>
@@ -100,9 +102,19 @@ export default async function DashboardPage() {
                 {healthy ? "Online" : "Offline"}
               </span>
             </div>
-            <StatCard label="Statements" value={totalDontoStatements.toLocaleString()} />
+            <div className="relative">
+              <StatCard label="Statements" value={totalDontoStatements.toLocaleString()} />
+              <div className="absolute top-3 right-3">
+                <HelpTip text="Individual facts (triples) stored in the knowledge graph. Each claim generates 7-9 statements covering its text, category, value, evidence, and confidence." />
+              </div>
+            </div>
             <StatCard label="Subjects" value={dontoSubjects} />
-            <StatCard label="Candidate Contexts" value={candidateCtxs.length} />
+            <div className="relative">
+              <StatCard label="Candidate Contexts" value={candidateCtxs.length} />
+              <div className="absolute top-3 right-3">
+                <HelpTip text="Claims start in candidate contexts — a staging area where they can be promoted to verified status after simulation confirms them." />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -112,6 +124,7 @@ export default async function DashboardPage() {
             <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
               <span className="inline-block h-6 w-1 rounded-full bg-[#B07D2B]" />
               <span className="font-serif">Proof Obligations</span>
+              <HelpTip text="Work items flagging claims that need additional verification — either because confidence is low or the claim type requires disambiguation." />
             </h2>
             <div className="grid gap-5 sm:grid-cols-3">
               {obligations.map((o) => (

@@ -12,7 +12,7 @@ const WEB_URL = "http://localhost:3001";
 const DONTOSRV_URL = process.env.DONTOSRV_URL ?? "http://localhost:7879";
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  "postgres://toiletpaper:toiletpaper@127.0.0.1:5432/toiletpaper";
+  "postgres://toiletpaper:toiletpaper@127.0.0.1:5434/toiletpaper";
 
 async function fetchJson(url: string, init?: RequestInit) {
   const r = await fetch(url, {

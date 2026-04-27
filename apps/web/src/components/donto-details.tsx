@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, type ReactNode } from "react";
+import { HelpTip } from "@/components/help-tip";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ function DontoSection({
   children,
   onExpand,
   loading,
+  helpTip,
 }: {
   title: string;
   icon: string;
@@ -63,6 +65,7 @@ function DontoSection({
   children: ReactNode;
   onExpand?: () => void;
   loading?: boolean;
+  helpTip?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -83,6 +86,11 @@ function DontoSection({
         <span className="flex-1 text-sm font-semibold text-[#3D3D3D]">
           {title}
         </span>
+        {helpTip && (
+          <span onClick={(e) => e.stopPropagation()}>
+            <HelpTip text={helpTip} />
+          </span>
+        )}
         {count != null && (
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#4A6FA5] px-1.5 text-[11px] font-medium text-white">
             {count}
@@ -385,6 +393,7 @@ export function DontoDetails({ paperId }: { paperId: string }) {
 
       <DontoSection
         title="Evidence Chain"
+        helpTip="The provenance trail: which model extracted the claims, from what document revision, linked to which text spans."
         icon="&#128279;"
         count={evidenceData?.tripleCount}
         onExpand={loadEvidence}
@@ -399,6 +408,7 @@ export function DontoDetails({ paperId }: { paperId: string }) {
 
       <DontoSection
         title="Lifecycle Progress"
+        helpTip="11 stages from raw observation to formal verification. Each stage requires specific evidence (extraction run, confidence score, shape validation, etc.)"
         icon="&#9679;"
         count={lifecycleData ? lifecycleData.completedCount : undefined}
         onExpand={loadLifecycle}
@@ -413,6 +423,7 @@ export function DontoDetails({ paperId }: { paperId: string }) {
 
       <DontoSection
         title="Arguments"
+        helpTip="Logical connections between claims and simulation results. 'Supports' means simulation evidence backs the claim. 'Rebuts' means simulation contradicts it."
         icon="&#9878;"
         count={argumentsLoaded ? argumentsData.length : undefined}
         onExpand={loadArguments}
@@ -423,6 +434,7 @@ export function DontoDetails({ paperId }: { paperId: string }) {
 
       <DontoSection
         title="Proof Obligations"
+        helpTip="Outstanding verification tasks. 'needs-source-support' means the claim needs stronger evidence. 'needs-replication' means the simulation result was fragile."
         icon="&#9888;"
         count={obligationsLoaded ? obligationsData.length : undefined}
         onExpand={loadObligations}

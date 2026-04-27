@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 
-const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://toiletpaper:toiletpaper@127.0.0.1:5432/toiletpaper";
+const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://toiletpaper:toiletpaper@127.0.0.1:5434/toiletpaper";
 const DONTOSRV_URL = process.env.DONTOSRV_URL ?? "http://localhost:7879";
 
 const paperId = process.argv[2];

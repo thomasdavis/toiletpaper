@@ -11,6 +11,7 @@ import {
   Divider,
 } from "@toiletpaper/ui";
 import { ReportTabs } from "@/components/report-tabs";
+import { HelpTip } from "@/components/help-tip";
 
 type Simulation = typeof simulations.$inferSelect;
 
@@ -172,6 +173,17 @@ export default async function ReportPage({
           )}
           <p className="mt-3 font-serif text-lg text-[#3D3D3D]">Toiletpaper Analysis Report</p>
           <p className="mt-1 text-sm text-[#9B9B9B]">{analysisDate}</p>
+        </div>
+
+        {/* Verdict legend */}
+        <div className="flex items-start gap-2 rounded-lg border border-[#E8E5DE] bg-[#FAFAF8] px-4 py-3 text-[13px] leading-relaxed text-[#6B6B6B]">
+          <HelpTip text="Verdicts: reproduced = simulation confirms claim. contradicted = simulation produces inconsistent results. fragile = result depends on parameters. inconclusive = insufficient data to decide." />
+          <span>
+            <strong className="text-[#3D3D3D]">reproduced</strong> = simulation confirms &middot;{" "}
+            <strong className="text-[#3D3D3D]">contradicted</strong> = simulation contradicts &middot;{" "}
+            <strong className="text-[#3D3D3D]">fragile</strong> = parameter-dependent &middot;{" "}
+            <strong className="text-[#3D3D3D]">inconclusive</strong> = insufficient data
+          </span>
         </div>
 
         {/* Summary stats */}
