@@ -44,23 +44,12 @@ export function StatTile({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-lg border p-5 shadow-sm transition-all",
+        "relative rounded-lg border p-5 shadow-sm transition-all",
         BORDER_TONES[tone],
         interactive ? "hover:-translate-y-0.5 hover:shadow-md" : "",
         className ?? "",
       ].join(" ")}
     >
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-1.5 opacity-70"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, #D4D0C8 1px, transparent 1.2px)",
-          backgroundSize: "10px 100%",
-          backgroundRepeat: "repeat-x",
-          backgroundPosition: "center top",
-        }}
-        aria-hidden
-      />
       <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9B9B9B]">
         {label}
       </span>

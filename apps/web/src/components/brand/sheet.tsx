@@ -34,18 +34,6 @@ export function Sheet({
         className ?? "",
       ].join(" ")}
     >
-      {/* Tear-edge perforation across the top */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-1.5"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, #E8E5DE 1px, transparent 1.2px)",
-          backgroundSize: "10px 100%",
-          backgroundRepeat: "repeat-x",
-          backgroundPosition: "center top",
-        }}
-        aria-hidden
-      />
       {index && (
         <span className="font-mono text-[11px] font-semibold tracking-[0.18em] text-[#4A6FA5]">
           {index}

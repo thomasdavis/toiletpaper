@@ -3,25 +3,14 @@ import { Logo } from "./logo";
 import { Perforation } from "./perforation";
 
 interface Props {
-  /** Live count to render in the brand line, e.g. number of papers analyzed. */
+  /** Reserved for future use (e.g. a live counter). Currently unused. */
   papersAnalyzed?: number;
 }
 
-/**
- * Site footer with a perforation along the top — visually, the page
- * tears off below this line. Right side carries an unobtrusive brand
- * note with a live paper count if provided.
- */
-export function Footer({ papersAnalyzed }: Props) {
+export function Footer(_props: Props) {
   return (
     <footer className="mx-auto mt-16 max-w-6xl px-4">
-      <Perforation
-        label={
-          typeof papersAnalyzed === "number"
-            ? `tear here · ${papersAnalyzed} sheet${papersAnalyzed === 1 ? "" : "s"} on the roll`
-            : "tear here"
-        }
-      />
+      <Perforation />
       <div className="flex flex-col items-start justify-between gap-4 pb-10 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2 text-[#9B9B9B]">
           <Logo size={18} />

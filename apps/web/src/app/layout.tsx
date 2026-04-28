@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { DebugProvider } from "@/components/debug-provider";
 import { DebugToggle } from "@/components/debug-toggle";
-import { Logo, Footer } from "@/components/brand";
+import { Footer } from "@/components/brand";
 import { db } from "@/lib/db";
 import { papers } from "@toiletpaper/db";
 import { count } from "drizzle-orm";
@@ -93,14 +93,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body className="min-h-screen bg-[#FAFAF8] text-[#1A1A1A] antialiased">
         <DebugProvider>
-          <nav className="relative border-b border-[#E8E5DE] bg-white">
+          <nav className="border-b border-[#E8E5DE] bg-white">
             <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
               <Link
                 href="/"
-                className="group inline-flex items-center gap-2 text-[#1A1A1A] transition-colors"
-                aria-label="toiletpaper home"
+                className="inline-flex items-center gap-2 text-[#1A1A1A]"
               >
-                <Logo size={22} className="text-[#4A6FA5] transition-transform group-hover:rotate-[-8deg]" />
                 <span className="font-serif text-lg font-bold tracking-tight">
                   toiletpaper
                 </span>
@@ -120,18 +118,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <DebugToggle />
               </div>
             </div>
-            {/* Subtle perforation under the navbar — like a sheet just torn off */}
-            <div
-              className="pointer-events-none absolute inset-x-0 -bottom-[3px] h-1.5"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle, #D4D0C8 1px, transparent 1.2px)",
-                backgroundSize: "10px 100%",
-                backgroundRepeat: "repeat-x",
-                backgroundPosition: "center top",
-              }}
-              aria-hidden
-            />
           </nav>
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
           <Footer papersAnalyzed={papersAnalyzed} />

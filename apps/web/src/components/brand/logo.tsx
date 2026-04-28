@@ -1,16 +1,12 @@
 interface Props {
   size?: number;
   className?: string;
-  /** When true, the trailing perforation line is hidden (compact mode). */
-  compact?: boolean;
 }
 
 /**
- * A paper-roll seen end-on (circle with a center tube) with a short
- * perforated tail trailing off to the right — the moment before a sheet
- * tears off. Subtle wordmark-companion glyph for `toiletpaper`.
+ * Neutral wordmark companion. A simple ringed dot — no metaphor.
  */
-export function Logo({ size = 22, className, compact = false }: Props) {
+export function Logo({ size = 22, className }: Props) {
   return (
     <svg
       width={size}
@@ -19,15 +15,11 @@ export function Logo({ size = 22, className, compact = false }: Props) {
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
-      strokeLinecap="round"
       className={className}
       aria-hidden
     >
-      <circle cx="9" cy="12" r="7" />
-      <circle cx="9" cy="12" r="2" fill="currentColor" stroke="none" />
-      {!compact && (
-        <path d="M16.5 12 H 22" strokeDasharray="1.6 1.8" opacity="0.55" />
-      )}
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
     </svg>
   );
 }

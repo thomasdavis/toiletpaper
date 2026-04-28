@@ -81,15 +81,8 @@ export default async function DashboardPage() {
   return (
     <Container>
       <div className="py-4">
-        {/* Hero: what is toiletpaper? */}
-        <section className="relative">
-          {/* Sheet number marker, top-right */}
-          <span
-            className="absolute -top-1 right-0 hidden font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-[#C8C3B8] sm:block"
-            aria-hidden
-          >
-            sheet 1 · the pitch
-          </span>
+        {/* Hero */}
+        <section>
           <Eyebrow>Reproducibility engine for research papers</Eyebrow>
           <h1 className="mt-3 font-serif text-[44px] font-bold leading-[1.05] tracking-[-0.02em] text-[#1A1A1A] sm:text-[64px]">
             Don&rsquo;t take a paper&rsquo;s word for it.
@@ -136,13 +129,13 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        <Perforation label="sheet 2 · live state" />
+        <Perforation />
 
         {/* Live stats */}
         <section>
           <SectionHeader
-            eyebrow="What&rsquo;s on the roll right now"
-            title="Live stats"
+            eyebrow="Live counters"
+            title="What&rsquo;s in the system right now"
             description="Numbers ticking from the production database — every upload, extraction, and simulation lands here in real time."
             size="sm"
           />
@@ -169,22 +162,10 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        <Perforation label="sheet 3 · why a graph" />
+        <Perforation />
 
         {/* How toiletpaper uses Donto for scientific reproducibility */}
-        <section className="relative overflow-hidden rounded-xl border border-[#E8E5DE] bg-white p-6 shadow-sm sm:p-8">
-          {/* Tear-edge perforation top of the section */}
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-1.5"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle, #E8E5DE 1px, transparent 1.2px)",
-              backgroundSize: "10px 100%",
-              backgroundRepeat: "repeat-x",
-              backgroundPosition: "center top",
-            }}
-            aria-hidden
-          />
+        <section className="rounded-xl border border-[#E8E5DE] bg-white p-6 shadow-sm sm:p-8">
           <SectionHeader
             eyebrow="Why toiletpaper is built on a knowledge graph"
             title={
@@ -337,7 +318,7 @@ export default async function DashboardPage() {
           </p>
         </section>
 
-        <Perforation label="sheet 4 · live graph" />
+        <Perforation />
 
         {/* Donto Knowledge Graph live stats */}
         <section>
@@ -376,7 +357,7 @@ export default async function DashboardPage() {
         {/* Proof Obligations */}
         {totalObligations > 0 && (
           <>
-            <Perforation label="sheet 5 · loose ends" />
+            <Perforation />
             <section>
               <SectionHeader
                 eyebrow="Proof obligations"
