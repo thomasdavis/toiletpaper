@@ -158,12 +158,158 @@ export default async function DashboardPage() {
           </p>
         </section>
 
-        {/* Donto Knowledge Graph */}
+        {/* How toiletpaper uses Donto */}
+        <section className="rounded-xl border border-[#E8E5DE] bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4A6FA5]">
+            Powered by Donto
+          </p>
+          <h2 className="mt-2 font-serif text-[32px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
+            Every claim is a graph, not a row.
+          </h2>
+          <p className="mt-3 max-w-3xl text-[15px] leading-[1.65] text-[#3D3D3D]">
+            toiletpaper writes everything it learns about a paper into{" "}
+            <a
+              href="https://github.com/thomasdavis/donto"
+              className="font-semibold text-[#4A6FA5] underline decoration-[#4A6FA5]/30 underline-offset-2 hover:decoration-[#4A6FA5]"
+            >
+              Donto
+            </a>
+            , a bitemporal knowledge graph. Each fact carries a{" "}
+            <em>valid time</em> (when it&rsquo;s true in the world) and a{" "}
+            <em>transaction time</em> (when we recorded it), so the system can
+            answer not just &ldquo;what do we believe?&rdquo; but{" "}
+            &ldquo;what did we believe yesterday, and why did that change?&rdquo;
+          </p>
+
+          {/* Wire format sample */}
+          <div className="mt-6 overflow-x-auto rounded-lg border border-[#E8E5DE] bg-[#FAFAF8] p-4 font-mono text-[12px] leading-[1.6] text-[#3D3D3D]">
+            <div><span className="text-[#9B9B9B]">// one quad written when a claim is extracted</span></div>
+            <div>
+              <span className="text-[#4A6FA5]">subject</span>:{" "}
+              <span className="text-[#9B2226]">tp:claim:7c2…</span>
+            </div>
+            <div>
+              <span className="text-[#4A6FA5]">predicate</span>:{" "}
+              <span className="text-[#2D6A4F]">tp:simulationVerdict</span>
+            </div>
+            <div>
+              <span className="text-[#4A6FA5]">object</span>:{" "}
+              <span className="text-[#B07D2B]">&quot;reproduced&quot;</span>
+            </div>
+            <div>
+              <span className="text-[#4A6FA5]">context</span>:{" "}
+              <span className="text-[#9B9B9B]">tp:paper:&lt;id&gt;:claims</span>{" "}
+              <span className="text-[#9B9B9B]">// candidate, can be promoted</span>
+            </div>
+            <div>
+              <span className="text-[#4A6FA5]">tx_lo</span>:{" "}
+              <span className="text-[#3D3D3D]">2026-04-28T12:34Z</span>{" "}
+              <span className="text-[#9B9B9B]">// when we recorded it</span>
+            </div>
+            <div>
+              <span className="text-[#4A6FA5]">valid_lo</span>:{" "}
+              <span className="text-[#3D3D3D]">null</span>{" "}
+              <span className="text-[#9B9B9B]">// always-true unless retracted</span>
+            </div>
+            <div>
+              <span className="text-[#4A6FA5]">lineage</span>:{" "}
+              <span className="text-[#3D3D3D]">[stmt:abc, stmt:def]</span>{" "}
+              <span className="text-[#9B9B9B]">// statements this was derived from</span>
+            </div>
+          </div>
+
+          {/* Capabilities grid */}
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                title: "Bitemporal everything",
+                body:
+                  "Every statement has tx_lo / tx_hi (transaction time) and valid_lo / valid_hi (real-world validity). Retract a claim and the row isn't deleted — its tx_hi is closed, so /history still returns it.",
+              },
+              {
+                title: "Quads, not triples",
+                body:
+                  "Subject · predicate · object · context. Every paper gets its own context (tp:paper:<id>:claims) so claims can be staged in a candidate sub-graph before being promoted.",
+              },
+              {
+                title: "Per-paper sub-graphs",
+                body:
+                  "Two contexts created per upload: tp:papers (the source root) and tp:paper:<id>:claims (a candidate child). The candidate flag means: not yet vouched for. Verified claims get promoted by transaction.",
+              },
+              {
+                title: "Typed claim metadata",
+                body:
+                  "Each claim emits 7–9 quads — tp:claimText, tp:category, tp:predicate, tp:value, tp:unit, tp:confidence, tp:evidence, tp:extractedFrom — plus rdf:type tp:Claim. The paper itself becomes a schema:ScholarlyArticle subject.",
+              },
+              {
+                title: "Provenance chain",
+                body:
+                  "Document, revision, agent, run, and obligation IRIs are all stored. We track tp:extractionModel, tp:extractionVersion, tp:parserVersion, tp:bodyCharCount, and tp:agent so you can re-derive any claim.",
+              },
+              {
+                title: "Arguments (supports / rebuts)",
+                body:
+                  "When a simulation reproduces a claim we wire a supports edge from the verdict statement to the claimText statement; contradictions wire a rebuts edge. Strength scales with confidence. Visible at /arguments/frontier.",
+              },
+              {
+                title: "Proof obligations",
+                body:
+                  "Fragile or low-confidence verdicts emit a needs-replication obligation that stays open until cleared. The dashboard's Proof Obligations panel is a live read of /obligations/open.",
+              },
+              {
+                title: "Lifecycle stages",
+                body:
+                  "Asserted → Evidence-linked → Argued → Certified → Obligations-clear. /api/papers/<id>/lifecycle reads Donto and returns which stages are complete for any paper.",
+              },
+              {
+                title: "Lineage & shape checks",
+                body:
+                  "Every derived statement lists the source statement_ids in lineage, so you can walk back to raw claim text. SHACL-style shape reports (tp:shape/claim-structure) are attached to validate ingest.",
+              },
+              {
+                title: "History per subject",
+                body:
+                  "GET /history/<iri> returns the full quad-by-quad audit trail for any paper or claim — every change, every retraction, every actor — at any point in time.",
+              },
+              {
+                title: "Verdict quads",
+                body:
+                  "After simulation we assert tp:simulationVerdict, tp:verdictReason, tp:measuredValue, tp:expectedValue back onto the claim subject — so the verdict is a graph statement, not a side-table.",
+              },
+              {
+                title: "Certificates (signable)",
+                body:
+                  "Donto attaches verification certificates with kind, rule_iri, inputs, and a body that can carry a signature, produced_at, verified_at, and verifier — making any verdict externally auditable.",
+              },
+            ].map((c) => (
+              <div
+                key={c.title}
+                className="rounded-lg border border-[#E8E5DE] bg-[#FAFAF8] p-4"
+              >
+                <h3 className="font-serif text-[16px] font-bold tracking-tight text-[#1A1A1A]">
+                  {c.title}
+                </h3>
+                <p className="mt-1.5 text-[13px] leading-[1.55] text-[#3D3D3D]">
+                  {c.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-6 text-[13px] leading-[1.55] text-[#6B6B6B]">
+            Net effect: every paper analyzed leaves behind a typed, queryable,
+            time-versioned graph that another agent &mdash; or a future you
+            &mdash; can re-walk to ask &ldquo;why did toiletpaper conclude this?&rdquo;
+            and get a verifiable answer instead of a vibe.
+          </p>
+        </section>
+
+        {/* Donto Knowledge Graph live stats */}
         <div>
           <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
             <span className="inline-block h-6 w-1 rounded-full bg-[#4A6FA5]" />
-            <span className="font-serif">Donto Knowledge Graph</span>
-            <HelpTip text="Donto is a bitemporal knowledge graph that stores every extracted claim, its evidence chain, arguments, and lifecycle state. It tracks what we know, when we learned it, and how confident we are." />
+            <span className="font-serif">Donto, live</span>
+            <HelpTip text="Real-time counts pulled from the Donto sidecar — statements, subjects, candidate contexts, and current obligations." />
           </h2>
           <div className="grid gap-5 sm:grid-cols-4">
             <div className={`rounded-lg border p-5 shadow-sm ${healthy ? "border-[#2D6A4F]/30 bg-[#D4EDE1]/30" : "border-[#9B2226]/30 bg-[#F5D5D6]/30"}`}>
