@@ -158,27 +158,28 @@ export default async function DashboardPage() {
           </p>
         </section>
 
-        {/* How toiletpaper uses Donto */}
+        {/* How toiletpaper uses Donto for scientific reproducibility */}
         <section className="rounded-xl border border-[#E8E5DE] bg-white p-6 shadow-sm sm:p-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4A6FA5]">
-            Powered by Donto
+            Why toiletpaper is built on a knowledge graph
           </p>
           <h2 className="mt-2 font-serif text-[32px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
-            Every claim is a graph, not a row.
+            A paper isn&rsquo;t a row. It&rsquo;s an evidentiary world.
           </h2>
           <p className="mt-3 max-w-3xl text-[15px] leading-[1.65] text-[#3D3D3D]">
-            toiletpaper writes everything it learns about a paper into{" "}
+            Scientific reproducibility lives or dies by traceability: which
+            paragraph produced which claim, which simulation challenged it, what
+            we believed yesterday vs. today, and why. A flat database flattens
+            all of that. toiletpaper builds the analysis as a graph in{" "}
             <a
               href="https://github.com/thomasdavis/donto"
               className="font-semibold text-[#4A6FA5] underline decoration-[#4A6FA5]/30 underline-offset-2 hover:decoration-[#4A6FA5]"
             >
               Donto
-            </a>
-            , a bitemporal knowledge graph. Each fact carries a{" "}
-            <em>valid time</em> (when it&rsquo;s true in the world) and a{" "}
-            <em>transaction time</em> (when we recorded it), so the system can
-            answer not just &ldquo;what do we believe?&rdquo; but{" "}
-            &ldquo;what did we believe yesterday, and why did that change?&rdquo;
+            </a>{" "}
+            so every claim, span, verdict, and obligation is a typed,
+            time-versioned, source-traceable fact &mdash; and the act of
+            updating an opinion preserves the old one instead of overwriting it.
           </p>
 
           {/* Wire format sample */}
@@ -218,68 +219,68 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Capabilities grid */}
+          {/* What it lets toiletpaper do */}
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                title: "Bitemporal everything",
+                title: "Replay our verdict at any point in time",
                 body:
-                  "Every statement has tx_lo / tx_hi (transaction time) and valid_lo / valid_hi (real-world validity). Retract a claim and the row isn't deleted — its tx_hi is closed, so /history still returns it.",
+                  "Papers get retracted. Methodologies get refined. Models get replaced. Because every fact carries a transaction time, you can ask toiletpaper what it believed about a paper on the day it was published — not just today — and see exactly which re-extraction or new simulation flipped a verdict.",
               },
               {
-                title: "Quads, not triples",
+                title: "Each paper is its own evidentiary world",
                 body:
-                  "Subject · predicate · object · context. Every paper gets its own context (tp:paper:<id>:claims) so claims can be staged in a candidate sub-graph before being promoted.",
+                  "Two papers can make contradictory claims about the same constant and never collide. Every paper gets its own quad context, so the verdict on Paper A’s neutrino mass never silently rewrites Paper B’s. Cross-paper analysis is intentional, not accidental.",
               },
               {
-                title: "Per-paper sub-graphs",
+                title: "Candidate vs. vouched-for, by transaction",
                 body:
-                  "Two contexts created per upload: tp:papers (the source root) and tp:paper:<id>:claims (a candidate child). The candidate flag means: not yet vouched for. Verified claims get promoted by transaction.",
+                  "Freshly extracted claims land in a candidate context — not yet vouched for. Promotion to verified is a recorded transaction with a timestamp and an actor, so you can always answer “when did toiletpaper start believing this?” and “what evidence pushed it across the line?”",
               },
               {
-                title: "Typed claim metadata",
+                title: "A claim is structured data, not a sentence",
                 body:
-                  "Each claim emits 7–9 quads — tp:claimText, tp:category, tp:predicate, tp:value, tp:unit, tp:confidence, tp:evidence, tp:extractedFrom — plus rdf:type tp:Claim. The paper itself becomes a schema:ScholarlyArticle subject.",
+                  "“The muon g-2 anomaly is 4.2σ” is decomposed into predicate, value, unit, category, source-evidence, and confidence. That structure is what lets a deterministic simulator pick the claim up and actually run it. A pile of quoted sentences couldn’t be tested.",
               },
               {
-                title: "Provenance chain",
+                title: "Reproducibility includes how we read the paper",
                 body:
-                  "Document, revision, agent, run, and obligation IRIs are all stored. We track tp:extractionModel, tp:extractionVersion, tp:parserVersion, tp:bodyCharCount, and tp:agent so you can re-derive any claim.",
+                  "Every extraction stores the model, model-version, parser-version, byte-count, agent, and run. If GPT-4 said the half-life was 12.4 ± 0.3 yr and a re-extraction with a better model says 12.6 ± 0.1 yr, both readings sit side-by-side in the graph and the verdict shift is explainable, not magic.",
               },
               {
-                title: "Arguments (supports / rebuts)",
+                title: "Verdicts are evidence, not labels",
                 body:
-                  "When a simulation reproduces a claim we wire a supports edge from the verdict statement to the claimText statement; contradictions wire a rebuts edge. Strength scales with confidence. Visible at /arguments/frontier.",
+                  "A “reproduced” verdict is wired as a supports edge from the simulation’s verdict statement to the claim’s text statement, with strength = simulation confidence. “Contradicted” wires a rebuts edge. Ask the graph “what supports this claim?” and you get a chain — paragraph → claim → simulation → verdict — not a boolean.",
               },
               {
-                title: "Proof obligations",
+                title: "Loose ends don’t get forgotten",
                 body:
-                  "Fragile or low-confidence verdicts emit a needs-replication obligation that stays open until cleared. The dashboard's Proof Obligations panel is a live read of /obligations/open.",
+                  "When a simulation comes back fragile or low-confidence, toiletpaper opens a needs-replication obligation against the claim. The paper isn’t done until those obligations clear — it’s the audit checklist a careful reviewer would build by hand, kept by the system instead.",
               },
               {
-                title: "Lifecycle stages",
+                title: "An analysis with a known shape",
                 body:
-                  "Asserted → Evidence-linked → Argued → Certified → Obligations-clear. /api/papers/<id>/lifecycle reads Donto and returns which stages are complete for any paper.",
+                  "Every paper marches through Asserted → Evidence-linked → Argued → Certified → Obligations-clear. The lifecycle is read out of the graph, not stored in a brittle status column, so it can never drift from what’s actually true about the paper.",
               },
               {
-                title: "Lineage & shape checks",
+                title: "Every conclusion traces back to a quote",
                 body:
-                  "Every derived statement lists the source statement_ids in lineage, so you can walk back to raw claim text. SHACL-style shape reports (tp:shape/claim-structure) are attached to validate ingest.",
+                  "Derived statements list the source statement_ids they came from, so the verdict on a claim traces all the way back to the paragraph in the PDF that introduced it. Shape reports validate at ingest time that no required structure dropped on the way in.",
               },
               {
-                title: "History per subject",
+                title: "Time-travel queries on demand",
                 body:
-                  "GET /history/<iri> returns the full quad-by-quad audit trail for any paper or claim — every change, every retraction, every actor — at any point in time.",
+                  "A single GET /history call returns the full quad-by-quad audit log for any paper or claim: every assertion, retraction, actor, and timestamp. When a journal updates a paper or a result is challenged, you replay the history instead of guessing.",
               },
               {
-                title: "Verdict quads",
+                title: "Verdicts live in the graph, not next to it",
                 body:
-                  "After simulation we assert tp:simulationVerdict, tp:verdictReason, tp:measuredValue, tp:expectedValue back onto the claim subject — so the verdict is a graph statement, not a side-table.",
+                  "tp:simulationVerdict, tp:verdictReason, tp:measuredValue, and tp:expectedValue are first-class facts asserted onto the claim. So “every claim where simulation came within 5% of the paper’s expected value” is one query away — across every paper toiletpaper has ever analyzed.",
               },
               {
-                title: "Certificates (signable)",
+                title: "Externally auditable conclusions",
                 body:
-                  "Donto attaches verification certificates with kind, rule_iri, inputs, and a body that can carry a signature, produced_at, verified_at, and verifier — making any verdict externally auditable.",
+                  "Donto attaches certificates with rule_iri, inputs, body, signature, and verifier. A journal, a reviewer, or a downstream agent can verify a toiletpaper verdict cryptographically without having to trust our infrastructure or even our codebase.",
               },
             ].map((c) => (
               <div
@@ -296,11 +297,12 @@ export default async function DashboardPage() {
             ))}
           </div>
 
-          <p className="mt-6 text-[13px] leading-[1.55] text-[#6B6B6B]">
-            Net effect: every paper analyzed leaves behind a typed, queryable,
-            time-versioned graph that another agent &mdash; or a future you
-            &mdash; can re-walk to ask &ldquo;why did toiletpaper conclude this?&rdquo;
-            and get a verifiable answer instead of a vibe.
+          <p className="mt-6 max-w-3xl text-[14px] leading-[1.6] text-[#6B6B6B]">
+            Net effect: when a paper is updated, a model is replaced, or a
+            verdict is challenged, toiletpaper has the data structures to show
+            &mdash; quad by quad, with timestamps and signatures &mdash; what
+            changed and why. That&rsquo;s what scientific review needs and
+            what a verdict-as-JSON-blob can&rsquo;t give you.
           </p>
         </section>
 
