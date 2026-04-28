@@ -1,10 +1,33 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const [paper] = await db.select().from(papers).where(eq(papers.id, id));
+  if (!paper) return { title: "Annotated paper not found" };
+  const description = `Read "${paper.title}" with extracted claims highlighted inline and color-coded by simulation verdict.`;
+  return {
+    title: `Annotated · ${paper.title}`,
+    description,
+    alternates: { canonical: `/papers/${id}/annotated` },
+    openGraph: {
+      title: `Annotated · ${paper.title}`,
+      description,
+      url: `/papers/${id}/annotated`,
+      type: "article",
+    },
+  };
+}
 import Link from "next/link";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";

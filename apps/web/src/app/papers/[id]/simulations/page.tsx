@@ -1,8 +1,31 @@
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const [paper] = await db.select().from(papers).where(eq(papers.id, id));
+  if (!paper) return { title: "Simulations not found" };
+  const description = `All simulation runs for "${paper.title}" — methods used, verdicts, confidence scores, and source code per run.`;
+  return {
+    title: `Simulations · ${paper.title}`,
+    description,
+    alternates: { canonical: `/papers/${id}/simulations` },
+    openGraph: {
+      title: `Simulations · ${paper.title}`,
+      description,
+      url: `/papers/${id}/simulations`,
+      type: "article",
+    },
+  };
+}
 import {
   Container,
 } from "@toiletpaper/ui";

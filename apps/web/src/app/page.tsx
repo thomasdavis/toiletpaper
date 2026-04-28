@@ -1,3 +1,8 @@
+// Force per-request rendering — counts and donto health change constantly.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { count } from "drizzle-orm";
@@ -15,6 +20,20 @@ import {
 } from "@toiletpaper/ui";
 import { HelpTip } from "@/components/help-tip";
 import { DebugPanel } from "@/components/debug-panel";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description:
+    "Live counts of papers analyzed, claims extracted, and simulations run by the toiletpaper reproducibility engine.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "toiletpaper · Dashboard",
+    description:
+      "Live counts of papers analyzed, claims extracted, and simulations run by the toiletpaper reproducibility engine.",
+    url: "/",
+    type: "website",
+  },
+};
 
 export default async function DashboardPage() {
   let stats = { papers: 0, claims: 0, simulations: 0 };

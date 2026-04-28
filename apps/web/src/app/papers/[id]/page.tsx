@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
@@ -20,6 +21,42 @@ import {
 } from "@toiletpaper/ui";
 import { DebugPanel } from "@/components/debug-panel";
 import { PaperTabs } from "@/components/paper-tabs";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const [paper] = await db.select().from(papers).where(eq(papers.id, id));
+  if (!paper) {
+    return { title: "Paper not found" };
+  }
+  const authors =
+    paper.authors && paper.authors.length > 0
+      ? ` by ${paper.authors.slice(0, 3).join(", ")}${paper.authors.length > 3 ? " et al." : ""}`
+      : "";
+  const description =
+    paper.abstract?.slice(0, 200) ??
+    `Reproducibility analysis of "${paper.title}"${authors} on toiletpaper.`;
+  return {
+    title: paper.title,
+    description,
+    alternates: { canonical: `/papers/${id}` },
+    openGraph: {
+      title: paper.title,
+      description,
+      url: `/papers/${id}`,
+      type: "article",
+      authors: paper.authors ?? undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: paper.title,
+      description,
+    },
+  };
+}
 
 export default async function PaperDetailPage({
   params,

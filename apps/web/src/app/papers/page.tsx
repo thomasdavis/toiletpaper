@@ -1,3 +1,8 @@
+// Force per-request rendering — the DB state changes constantly, never prerender.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { desc, eq, count as countFn, inArray } from "drizzle-orm";
@@ -6,6 +11,20 @@ import {
   Container,
   EmptyState,
 } from "@toiletpaper/ui";
+
+export const metadata: Metadata = {
+  title: "Papers",
+  description:
+    "All research papers analyzed by toiletpaper — with claim counts, simulation verdicts, and reproducibility status.",
+  alternates: { canonical: "/papers" },
+  openGraph: {
+    title: "Papers · toiletpaper",
+    description:
+      "All research papers analyzed by toiletpaper — with claim counts, simulation verdicts, and reproducibility status.",
+    url: "/papers",
+    type: "website",
+  },
+};
 
 function statusBadgeClasses(status: string) {
   switch (status) {

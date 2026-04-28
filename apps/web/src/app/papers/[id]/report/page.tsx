@@ -1,10 +1,33 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const [paper] = await db.select().from(papers).where(eq(papers.id, id));
+  if (!paper) return { title: "Report not found" };
+  const description = `Full reproducibility report for "${paper.title}" — claim-by-claim simulation verdicts, measured vs. expected values, and confidence scores.`;
+  return {
+    title: `Report · ${paper.title}`,
+    description,
+    alternates: { canonical: `/papers/${id}/report` },
+    openGraph: {
+      title: `Report · ${paper.title}`,
+      description,
+      url: `/papers/${id}/report`,
+      type: "article",
+    },
+  };
+}
 import {
   Container,
   Heading,
