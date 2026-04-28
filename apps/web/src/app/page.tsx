@@ -22,16 +22,24 @@ import { HelpTip } from "@/components/help-tip";
 import { DebugPanel } from "@/components/debug-panel";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: {
+    absolute: "toiletpaper — Reproducibility engine for research papers",
+  },
   description:
-    "Live counts of papers analyzed, claims extracted, and simulations run by the toiletpaper reproducibility engine.",
+    "toiletpaper reads a research paper, extracts every quantitative claim, runs an adversarial physics simulation against each one, and tells you which results actually reproduce.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "toiletpaper · Dashboard",
+    title: "toiletpaper — Reproducibility engine for research papers",
     description:
-      "Live counts of papers analyzed, claims extracted, and simulations run by the toiletpaper reproducibility engine.",
+      "Upload a PDF; get an annotated paper with each claim color-coded reproduced, contradicted, or inconclusive — backed by deterministic simulations and a verdict report.",
     url: "/",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "toiletpaper — Reproducibility engine for research papers",
+    description:
+      "Upload a PDF; get an annotated paper with each claim color-coded reproduced, contradicted, or inconclusive.",
   },
 };
 
@@ -68,33 +76,75 @@ export default async function DashboardPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-4">
-        {/* Header row: title + CTA */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-[48px] font-bold leading-tight tracking-[-0.02em] text-[#1A1A1A]">
-              Dashboard
-            </h1>
-            <p className="mt-2 text-[15px] text-[#6B6B6B]">
-              Upload papers, extract claims, simulate physics, verify truth.
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-3 pt-2">
+      <div className="space-y-10 py-4">
+        {/* Hero: what is toiletpaper? */}
+        <section>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4A6FA5]">
+            Reproducibility engine for research papers
+          </p>
+          <h1 className="mt-3 font-serif text-[56px] font-bold leading-[1.05] tracking-[-0.02em] text-[#1A1A1A] sm:text-[64px]">
+            Don&rsquo;t take a paper&rsquo;s word for it.
+          </h1>
+          <p className="mt-5 max-w-2xl text-[18px] leading-[1.6] text-[#3D3D3D]">
+            <strong className="font-semibold text-[#1A1A1A]">toiletpaper</strong> reads
+            a research paper, pulls out every quantitative claim, and runs an adversarial
+            simulation against each one — physics from scratch, not an LLM hand-wave —
+            then tells you which results actually reproduce.
+          </p>
+          <p className="mt-4 max-w-2xl text-[15px] leading-[1.65] text-[#6B6B6B]">
+            Upload a PDF or markdown. Within a few minutes you get an annotated copy of
+            the paper with each claim color-coded <span className="font-semibold text-[#2D6A4F]">reproduced</span>,{" "}
+            <span className="font-semibold text-[#9B2226]">contradicted</span>, or{" "}
+            <span className="font-semibold text-[#B07D2B]">inconclusive</span>, plus the
+            full simulation source, measured-vs-expected values, and a verdict report.
+          </p>
+
+          {/* How it works */}
+          <ol className="mt-8 grid gap-4 sm:grid-cols-4">
+            {[
+              { n: "01", t: "Upload", d: "Drop a PDF or markdown file." },
+              { n: "02", t: "Extract", d: "Claims, predicates, units, and confidence parsed from the text." },
+              { n: "03", t: "Simulate", d: "Each claim runs through deterministic physics or an adversarial LLM judge." },
+              { n: "04", t: "Verify", d: "A verdict report with measured-vs-expected and the source code that produced it." },
+            ].map((step) => (
+              <li
+                key={step.n}
+                className="rounded-lg border border-[#E8E5DE] bg-white p-4 shadow-sm"
+              >
+                <span className="font-mono text-[11px] font-semibold tracking-widest text-[#4A6FA5]">
+                  {step.n}
+                </span>
+                <h3 className="mt-1 font-serif text-[17px] font-bold text-[#1A1A1A]">
+                  {step.t}
+                </h3>
+                <p className="mt-1 text-[13px] leading-snug text-[#6B6B6B]">
+                  {step.d}
+                </p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/upload">
-              <button className="inline-flex h-11 items-center gap-2 rounded-md bg-[#4A6FA5] px-6 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
+              <button className="inline-flex h-12 items-center gap-2 rounded-md bg-[#4A6FA5] px-7 text-[15px] font-medium text-white shadow-sm transition-all hover:bg-[#3A5A87] active:bg-[#2E4A6F]">
                 Upload a paper
               </button>
             </Link>
             <Link href="/papers">
-              <button className="inline-flex h-11 items-center gap-2 rounded-md border border-[#D4D0C8] bg-white px-6 text-sm font-medium text-[#1A1A1A] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
-                Browse papers
+              <button className="inline-flex h-12 items-center gap-2 rounded-md border border-[#D4D0C8] bg-white px-7 text-[15px] font-medium text-[#1A1A1A] shadow-sm transition-all hover:bg-[#F5F3EF] active:bg-[#E8E5DE]">
+                Browse {stats.papers} analyzed paper{stats.papers !== 1 ? "s" : ""}
               </button>
             </Link>
           </div>
-        </div>
+        </section>
 
-        {/* Stats row */}
-        <div>
+        {/* Live stats */}
+        <section>
+          <h2 className="mb-4 flex items-center gap-2 text-[20px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
+            <span className="inline-block h-5 w-1 rounded-full bg-[#4A6FA5]" />
+            <span className="font-serif">Live stats</span>
+          </h2>
+
           <div className="grid gap-5 sm:grid-cols-3">
             <Link href="/papers">
               <StatCard label="Papers" value={stats.papers} />
@@ -106,7 +156,7 @@ export default async function DashboardPage() {
           <p className="mt-3 text-sm text-[#6B6B6B]">
             {stats.papers} paper{stats.papers !== 1 ? "s" : ""} analyzed, {stats.claims.toLocaleString()} claim{stats.claims !== 1 ? "s" : ""} extracted, {stats.simulations.toLocaleString()} simulation{stats.simulations !== 1 ? "s" : ""} completed
           </p>
-        </div>
+        </section>
 
         {/* Donto Knowledge Graph */}
         <div>
