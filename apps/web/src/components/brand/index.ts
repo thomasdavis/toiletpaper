@@ -1,4 +1,5 @@
 export { Logo } from "./logo";
+export { Folio } from "./folio";
 export { Perforation } from "./perforation";
 export { Eyebrow } from "./eyebrow";
 export { SectionHeader } from "./section-header";
