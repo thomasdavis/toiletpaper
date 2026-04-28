@@ -13,12 +13,16 @@ import {
   getObligationSummary,
   getSubjects,
 } from "@/lib/donto";
+import { Container } from "@toiletpaper/ui";
 import {
-  Container,
-  Heading,
-  StatCard,
-} from "@toiletpaper/ui";
-import { HelpTip } from "@/components/help-tip";
+  Perforation,
+  SectionHeader,
+  Sheet,
+  StatTile,
+  CodeQuad,
+  Eyebrow,
+  Pill,
+} from "@/components/brand";
 import { DebugPanel } from "@/components/debug-panel";
 
 export const metadata: Metadata = {
@@ -76,13 +80,18 @@ export default async function DashboardPage() {
 
   return (
     <Container>
-      <div className="space-y-10 py-4">
+      <div className="py-4">
         {/* Hero: what is toiletpaper? */}
-        <section>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4A6FA5]">
-            Reproducibility engine for research papers
-          </p>
-          <h1 className="mt-3 font-serif text-[56px] font-bold leading-[1.05] tracking-[-0.02em] text-[#1A1A1A] sm:text-[64px]">
+        <section className="relative">
+          {/* Sheet number marker, top-right */}
+          <span
+            className="absolute -top-1 right-0 hidden font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-[#C8C3B8] sm:block"
+            aria-hidden
+          >
+            sheet 1 · the pitch
+          </span>
+          <Eyebrow>Reproducibility engine for research papers</Eyebrow>
+          <h1 className="mt-3 font-serif text-[44px] font-bold leading-[1.05] tracking-[-0.02em] text-[#1A1A1A] sm:text-[64px]">
             Don&rsquo;t take a paper&rsquo;s word for it.
           </h1>
           <p className="mt-5 max-w-2xl text-[18px] leading-[1.6] text-[#3D3D3D]">
@@ -99,7 +108,7 @@ export default async function DashboardPage() {
             full simulation source, measured-vs-expected values, and a verdict report.
           </p>
 
-          {/* How it works */}
+          {/* How it works — each step rendered as a Sheet */}
           <ol className="mt-8 grid gap-4 sm:grid-cols-4">
             {[
               { n: "01", t: "Upload", d: "Drop a PDF or markdown file." },
@@ -107,19 +116,8 @@ export default async function DashboardPage() {
               { n: "03", t: "Simulate", d: "Each claim runs through deterministic physics or an adversarial LLM judge." },
               { n: "04", t: "Verify", d: "A verdict report with measured-vs-expected and the source code that produced it." },
             ].map((step) => (
-              <li
-                key={step.n}
-                className="rounded-lg border border-[#E8E5DE] bg-white p-4 shadow-sm"
-              >
-                <span className="font-mono text-[11px] font-semibold tracking-widest text-[#4A6FA5]">
-                  {step.n}
-                </span>
-                <h3 className="mt-1 font-serif text-[17px] font-bold text-[#1A1A1A]">
-                  {step.t}
-                </h3>
-                <p className="mt-1 text-[13px] leading-snug text-[#6B6B6B]">
-                  {step.d}
-                </p>
+              <li key={step.n} className="contents">
+                <Sheet index={step.n} title={step.t} description={step.d} />
               </li>
             ))}
           </ol>
@@ -138,86 +136,119 @@ export default async function DashboardPage() {
           </div>
         </section>
 
+        <Perforation label="sheet 2 · live state" />
+
         {/* Live stats */}
         <section>
-          <h2 className="mb-4 flex items-center gap-2 text-[20px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
-            <span className="inline-block h-5 w-1 rounded-full bg-[#4A6FA5]" />
-            <span className="font-serif">Live stats</span>
-          </h2>
-
-          <div className="grid gap-5 sm:grid-cols-3">
-            <Link href="/papers">
-              <StatCard label="Papers" value={stats.papers} />
+          <SectionHeader
+            eyebrow="What&rsquo;s on the roll right now"
+            title="Live stats"
+            description="Numbers ticking from the production database — every upload, extraction, and simulation lands here in real time."
+            size="sm"
+          />
+          <div className="mt-5 grid gap-5 sm:grid-cols-3">
+            <Link href="/papers" className="block">
+              <StatTile
+                label="Papers"
+                value={stats.papers}
+                caption="all-time analyzed"
+                interactive
+              />
             </Link>
-            <StatCard label="Claims Extracted" value={stats.claims} />
-            <StatCard label="Simulations" value={stats.simulations} />
+            <StatTile
+              label="Claims Extracted"
+              value={stats.claims.toLocaleString()}
+              caption="quantitative facts pulled from text"
+            />
+            <StatTile
+              label="Simulations"
+              value={stats.simulations.toLocaleString()}
+              caption="verdicts produced by the engine"
+              tone="blue"
+            />
           </div>
-          {/* Summary line */}
-          <p className="mt-3 text-sm text-[#6B6B6B]">
-            {stats.papers} paper{stats.papers !== 1 ? "s" : ""} analyzed, {stats.claims.toLocaleString()} claim{stats.claims !== 1 ? "s" : ""} extracted, {stats.simulations.toLocaleString()} simulation{stats.simulations !== 1 ? "s" : ""} completed
-          </p>
         </section>
 
-        {/* How toiletpaper uses Donto for scientific reproducibility */}
-        <section className="rounded-xl border border-[#E8E5DE] bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4A6FA5]">
-            Why toiletpaper is built on a knowledge graph
-          </p>
-          <h2 className="mt-2 font-serif text-[32px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
-            A paper isn&rsquo;t a row. It&rsquo;s an evidentiary world.
-          </h2>
-          <p className="mt-3 max-w-3xl text-[15px] leading-[1.65] text-[#3D3D3D]">
-            Scientific reproducibility lives or dies by traceability: which
-            paragraph produced which claim, which simulation challenged it, what
-            we believed yesterday vs. today, and why. A flat database flattens
-            all of that. toiletpaper builds the analysis as a graph in{" "}
-            <a
-              href="https://github.com/thomasdavis/donto"
-              className="font-semibold text-[#4A6FA5] underline decoration-[#4A6FA5]/30 underline-offset-2 hover:decoration-[#4A6FA5]"
-            >
-              Donto
-            </a>{" "}
-            so every claim, span, verdict, and obligation is a typed,
-            time-versioned, source-traceable fact &mdash; and the act of
-            updating an opinion preserves the old one instead of overwriting it.
-          </p>
+        <Perforation label="sheet 3 · why a graph" />
 
-          {/* Wire format sample */}
-          <div className="mt-6 overflow-x-auto rounded-lg border border-[#E8E5DE] bg-[#FAFAF8] p-4 font-mono text-[12px] leading-[1.6] text-[#3D3D3D]">
-            <div><span className="text-[#9B9B9B]">// one quad written when a claim is extracted</span></div>
-            <div>
-              <span className="text-[#4A6FA5]">subject</span>:{" "}
-              <span className="text-[#9B2226]">tp:claim:7c2…</span>
-            </div>
-            <div>
-              <span className="text-[#4A6FA5]">predicate</span>:{" "}
-              <span className="text-[#2D6A4F]">tp:simulationVerdict</span>
-            </div>
-            <div>
-              <span className="text-[#4A6FA5]">object</span>:{" "}
-              <span className="text-[#B07D2B]">&quot;reproduced&quot;</span>
-            </div>
-            <div>
-              <span className="text-[#4A6FA5]">context</span>:{" "}
-              <span className="text-[#9B9B9B]">tp:paper:&lt;id&gt;:claims</span>{" "}
-              <span className="text-[#9B9B9B]">// candidate, can be promoted</span>
-            </div>
-            <div>
-              <span className="text-[#4A6FA5]">tx_lo</span>:{" "}
-              <span className="text-[#3D3D3D]">2026-04-28T12:34Z</span>{" "}
-              <span className="text-[#9B9B9B]">// when we recorded it</span>
-            </div>
-            <div>
-              <span className="text-[#4A6FA5]">valid_lo</span>:{" "}
-              <span className="text-[#3D3D3D]">null</span>{" "}
-              <span className="text-[#9B9B9B]">// always-true unless retracted</span>
-            </div>
-            <div>
-              <span className="text-[#4A6FA5]">lineage</span>:{" "}
-              <span className="text-[#3D3D3D]">[stmt:abc, stmt:def]</span>{" "}
-              <span className="text-[#9B9B9B]">// statements this was derived from</span>
-            </div>
+        {/* How toiletpaper uses Donto for scientific reproducibility */}
+        <section className="relative overflow-hidden rounded-xl border border-[#E8E5DE] bg-white p-6 shadow-sm sm:p-8">
+          {/* Tear-edge perforation top of the section */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-1.5"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle, #E8E5DE 1px, transparent 1.2px)",
+              backgroundSize: "10px 100%",
+              backgroundRepeat: "repeat-x",
+              backgroundPosition: "center top",
+            }}
+            aria-hidden
+          />
+          <SectionHeader
+            eyebrow="Why toiletpaper is built on a knowledge graph"
+            title={
+              <>
+                A paper isn&rsquo;t a row. <br className="hidden sm:block" />
+                It&rsquo;s an evidentiary world.
+              </>
+            }
+            description={
+              <>
+                Scientific reproducibility lives or dies by traceability: which
+                paragraph produced which claim, which simulation challenged it,
+                what we believed yesterday vs.&nbsp;today, and why. A flat
+                database flattens all of that. toiletpaper builds the analysis
+                as a graph in{" "}
+                <a
+                  href="https://github.com/thomasdavis/donto"
+                  className="font-semibold text-[#4A6FA5] underline decoration-[#4A6FA5]/30 underline-offset-2 hover:decoration-[#4A6FA5]"
+                >
+                  Donto
+                </a>{" "}
+                so every claim, span, verdict, and obligation is a typed,
+                time-versioned, source-traceable fact — and the act of updating
+                an opinion preserves the old one instead of overwriting it.
+              </>
+            }
+          />
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Pill tone="blue" dot>Bitemporal quads</Pill>
+            <Pill tone="green" dot>Lineage-tracked</Pill>
+            <Pill tone="amber" dot>Auditable</Pill>
+            <Pill tone="muted" dot>SHACL-shaped</Pill>
           </div>
+
+          <CodeQuad
+            className="mt-6"
+            caption="one quad written when a simulation lands a verdict"
+            rows={[
+              { key: "subject", value: "tp:claim:7c2…", tone: "red" },
+              { key: "predicate", value: "tp:simulationVerdict", tone: "green" },
+              { key: "object", value: "\"reproduced\"", tone: "amber" },
+              {
+                key: "context",
+                value: "tp:paper:<id>:claims",
+                hint: "candidate, can be promoted",
+              },
+              {
+                key: "tx_lo",
+                value: "2026-04-28T12:34Z",
+                hint: "when we recorded it",
+              },
+              {
+                key: "valid_lo",
+                value: "null",
+                hint: "always-true unless retracted",
+              },
+              {
+                key: "lineage",
+                value: "[stmt:abc, stmt:def]",
+                hint: "statements this was derived from",
+              },
+            ]}
+          />
 
           {/* What it lets toiletpaper do */}
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -306,65 +337,67 @@ export default async function DashboardPage() {
           </p>
         </section>
 
+        <Perforation label="sheet 4 · live graph" />
+
         {/* Donto Knowledge Graph live stats */}
-        <div>
-          <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
-            <span className="inline-block h-6 w-1 rounded-full bg-[#4A6FA5]" />
-            <span className="font-serif">Donto, live</span>
-            <HelpTip text="Real-time counts pulled from the Donto sidecar — statements, subjects, candidate contexts, and current obligations." />
-          </h2>
-          <div className="grid gap-5 sm:grid-cols-4">
-            <div className={`rounded-lg border p-5 shadow-sm ${healthy ? "border-[#2D6A4F]/30 bg-[#D4EDE1]/30" : "border-[#9B2226]/30 bg-[#F5D5D6]/30"}`}>
-              <span className="block text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">Status</span>
-              <span className={`mt-2 block font-mono text-3xl font-bold tracking-tight ${healthy ? "text-[#2D6A4F]" : "text-[#9B2226]"}`}>
-                {healthy ? "Online" : "Offline"}
-              </span>
-            </div>
-            <div className="relative">
-              <StatCard label="Statements" value={totalDontoStatements.toLocaleString()} />
-              <div className="absolute top-3 right-3">
-                <HelpTip text="Individual facts (triples) stored in the knowledge graph. Each claim generates 7-9 statements covering its text, category, value, evidence, and confidence." />
-              </div>
-            </div>
-            <StatCard label="Subjects" value={dontoSubjects} />
-            <div className="relative">
-              <StatCard label="Candidate Contexts" value={candidateCtxs.length} />
-              <div className="absolute top-3 right-3">
-                <HelpTip text="Claims start in candidate contexts — a staging area where they can be promoted to verified status after simulation confirms them." />
-              </div>
-            </div>
+        <section>
+          <SectionHeader
+            eyebrow="Donto, live"
+            title="What&rsquo;s in the graph right now"
+            description="Real-time counts pulled from the Donto sidecar — statements, subjects, candidate contexts, and proof-obligation queue."
+            size="sm"
+          />
+          <div className="mt-5 grid gap-5 sm:grid-cols-4">
+            <StatTile
+              label="Status"
+              value={healthy ? "Online" : "Offline"}
+              caption={healthy ? "/healthz returning 200" : "sidecar unreachable"}
+              tone={healthy ? "green" : "red"}
+            />
+            <StatTile
+              label="Statements"
+              value={totalDontoStatements.toLocaleString()}
+              caption={`across ${tpContexts.length} paper context${tpContexts.length === 1 ? "" : "s"}`}
+            />
+            <StatTile
+              label="Subjects"
+              value={dontoSubjects}
+              caption="papers, claims, agents, runs"
+            />
+            <StatTile
+              label="Candidate contexts"
+              value={candidateCtxs.length}
+              caption="staging area before promotion"
+              tone="blue"
+            />
           </div>
-        </div>
+        </section>
 
         {/* Proof Obligations */}
         {totalObligations > 0 && (
-          <div>
-            <h2 className="mb-4 flex items-center gap-2 text-[24px] font-bold leading-tight tracking-[-0.01em] text-[#1A1A1A]">
-              <span className="inline-block h-6 w-1 rounded-full bg-[#B07D2B]" />
-              <span className="font-serif">Proof Obligations</span>
-              <HelpTip text="Work items flagging claims that need additional verification — either because confidence is low or the claim type requires disambiguation." />
-            </h2>
-            <div className="grid gap-5 sm:grid-cols-3">
-              {obligations.map((o) => (
-                <div
-                  key={`${o.obligation_type}-${o.status}`}
-                  className="rounded-lg border border-[#E8E5DE] bg-white p-5 shadow-sm"
-                >
-                  <span className="block text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">
-                    {o.obligation_type.replace(/-/g, " ")}
-                  </span>
-                  <div className="mt-2 flex items-baseline gap-3">
-                    <span className="font-mono text-3xl font-bold tracking-tight text-[#1A1A1A]">
-                      {o.count}
-                    </span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${o.status === "open" ? "bg-[#F5ECD4] text-[#B07D2B]" : "bg-[#D4EDE1] text-[#2D6A4F]"}`}>
-                      {o.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <>
+            <Perforation label="sheet 5 · loose ends" />
+            <section>
+              <SectionHeader
+                eyebrow="Proof obligations"
+                eyebrowTone="amber"
+                title="Loose ends still on the queue"
+                description="Claims flagged by the simulation engine as fragile or low-confidence. Each one stays open until cleared by replication or new evidence."
+                size="sm"
+              />
+              <div className="mt-5 grid gap-5 sm:grid-cols-3">
+                {obligations.map((o) => (
+                  <StatTile
+                    key={`${o.obligation_type}-${o.status}`}
+                    label={o.obligation_type.replace(/-/g, " ")}
+                    value={o.count}
+                    caption={o.status === "open" ? "open · awaiting evidence" : "closed"}
+                    tone={o.status === "open" ? "amber" : "green"}
+                  />
+                ))}
+              </div>
+            </section>
+          </>
         )}
         {/* Debug panels */}
         <DebugPanel label="Stats" data={stats} />
