@@ -39,24 +39,17 @@ import { ReportTabs } from "@/components/report-tabs";
 import { HelpTip } from "@/components/help-tip";
 import { DebugPanel } from "@/components/debug-panel";
 import { PaperTabs } from "@/components/paper-tabs";
+import { SignalBar } from "@/components/brand";
+import { summarizeVerdicts, normalizeVerdict } from "@/lib/verdict";
 
 type Simulation = typeof simulations.$inferSelect;
 
-function mapVerdict(verdict: string | null, metadata?: unknown) {
-  // Check metadata.original_verdict first — preserves fragile/undetermined/not-simulable
-  if (metadata && typeof metadata === "object") {
-    const m = metadata as Record<string, unknown>;
-    if (typeof m.original_verdict === "string") {
-      const ov = m.original_verdict;
-      if (ov === "reproduced") return "reproduced" as const;
-      if (ov === "contradicted") return "contradicted" as const;
-      if (ov === "fragile") return "fragile" as const;
-      // Fall through for other original verdicts
-    }
-  }
-  if (verdict === "confirmed") return "reproduced" as const;
-  if (verdict === "refuted") return "contradicted" as const;
-  return "inconclusive" as const;
+function mapVerdict(
+  verdict: string | null,
+  metadata?: unknown,
+  reason?: string | null,
+) {
+  return normalizeVerdict(verdict, metadata, reason ?? undefined);
 }
 
 function bestVerdict(sims: Simulation[]): { verdict: string; conflicting: boolean } {
@@ -98,7 +91,15 @@ export interface ReportClaim {
   text: string;
   confidence: number | null;
   category?: string;
-  verdict: "reproduced" | "contradicted" | "inconclusive" | "fragile" | "untested";
+  verdict:
+    | "reproduced"
+    | "contradicted"
+    | "inconclusive"
+    | "fragile"
+    | "untested"
+    | "not_applicable"
+    | "vacuous"
+    | "system_error";
   conflicting?: boolean;
   simulations: {
     method: string;
@@ -197,50 +198,12 @@ export default async function ReportPage({
           counts={{ claims: paperClaims.length, simulations: sims.length }}
         />
 
-        {/* Verdict legend */}
-        <div className="flex items-start gap-2 rounded-lg border border-[#E8E5DE] bg-[#FAFAF8] px-4 py-3 text-[13px] leading-relaxed text-[#6B6B6B]">
-          <HelpTip text="Verdicts: reproduced = simulation confirms claim. contradicted = simulation produces inconsistent results. fragile = result depends on parameters. inconclusive = insufficient data to decide." />
-          <span>
-            <strong className="text-[#3D3D3D]">reproduced</strong> = simulation confirms &middot;{" "}
-            <strong className="text-[#3D3D3D]">contradicted</strong> = simulation contradicts &middot;{" "}
-            <strong className="text-[#3D3D3D]">fragile</strong> = parameter-dependent &middot;{" "}
-            <strong className="text-[#3D3D3D]">inconclusive</strong> = insufficient data
-          </span>
-        </div>
-
-        {/* Summary stats */}
-        <div className="grid grid-cols-5 gap-4">
-          <div className="rounded-lg border border-[#E8E5DE] bg-white p-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">Total</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[#1A1A1A]">{counts.total}</p>
-          </div>
-          <div className="rounded-lg border border-[#2D6A4F]/20 bg-[#D4EDE1]/20 p-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#2D6A4F]">Reproduced</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[#2D6A4F]">{counts.reproduced}</p>
-          </div>
-          <div className="rounded-lg border border-[#9B2226]/20 bg-[#F5D5D6]/20 p-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9B2226]">Contradicted</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[#9B2226]">{counts.contradicted}</p>
-          </div>
-          <div className="rounded-lg border border-[#B07D2B]/20 bg-[#F5ECD4]/20 p-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#B07D2B]">Inconclusive</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[#B07D2B]">{counts.inconclusive}</p>
-          </div>
-          <div className="rounded-lg border border-[#E8E5DE] bg-white p-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B]">Untested</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[#9B9B9B]">{counts.untested}</p>
-          </div>
-        </div>
-
-        {/* Distribution bar */}
-        {counts.total - counts.untested > 0 && (
-          <div className="flex h-2.5 overflow-hidden rounded-full">
-            {counts.reproduced > 0 && <div className="bg-[#2D6A4F]" style={{ width: `${(counts.reproduced / counts.total) * 100}%` }} />}
-            {counts.contradicted > 0 && <div className="bg-[#9B2226]" style={{ width: `${(counts.contradicted / counts.total) * 100}%` }} />}
-            {counts.inconclusive > 0 && <div className="bg-[#B07D2B]" style={{ width: `${(counts.inconclusive / counts.total) * 100}%` }} />}
-            {counts.untested > 0 && <div className="bg-[#E8E5DE]" style={{ width: `${(counts.untested / counts.total) * 100}%` }} />}
-          </div>
-        )}
+        {/* Truth-bar: signal vs meta */}
+        <SignalBar
+          summary={summarizeVerdicts(sims)}
+          totalClaims={paperClaims.length}
+          className="rounded-xl border border-[#E8E5DE] bg-white p-5 shadow-sm"
+        />
 
         {/* Tabbed claim view */}
         <ReportTabs claims={reportClaims} counts={counts} />

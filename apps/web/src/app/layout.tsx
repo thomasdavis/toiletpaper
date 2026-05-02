@@ -110,9 +110,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <Link href="/upload" className="transition-colors hover:text-[#1A1A1A]">
                   Upload
                 </Link>
-                <Link href="/styleguide" className="transition-colors hover:text-[#1A1A1A]">
-                  Styleguide
-                </Link>
               </div>
               <div className="ml-auto">
                 <DebugToggle />

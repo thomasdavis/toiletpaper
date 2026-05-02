@@ -119,6 +119,23 @@ export default async function PaperDetailPage({
               {paper.abstract}
             </Text>
           )}
+
+          {paper.pdfUrl && (
+            <div className="mt-4">
+              <a
+                href={`/api/papers/${id}/source`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-md border border-[#D4D0C8] bg-white px-3 py-1.5 text-[13px] font-medium text-[#3D3D3D] shadow-sm transition-all hover:bg-[#F5F3EF]"
+              >
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M3 2h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+                  <path d="M5 9.5h6M5 11.5h4" strokeLinecap="round" />
+                </svg>
+                Source PDF
+              </a>
+            </div>
+          )}
         </div>
 
         <PaperTabs

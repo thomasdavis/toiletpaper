@@ -10,4 +10,5 @@ export { CodeQuad } from "./code-quad";
 export { Footer } from "./footer";
 export { VerdictTag, type VerdictKind } from "./verdict-tag";
 export { DistributionBar } from "./distribution-bar";
+export { SignalBar } from "./signal-bar";
 export { StatTile } from "./stat-tile";

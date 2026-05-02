@@ -1,23 +1,10 @@
 import { Pill } from "./pill";
+import { VERDICT_DISPLAY, type Verdict } from "@/lib/verdict";
 
-export type VerdictKind =
-  | "reproduced"
-  | "contradicted"
-  | "fragile"
-  | "inconclusive"
-  | "untested"
-  | "candidate"
-  | "verified";
-
-const MAP: Record<VerdictKind, { tone: Parameters<typeof Pill>[0]["tone"]; label: string }> = {
-  reproduced: { tone: "green", label: "Reproduced" },
-  contradicted: { tone: "red", label: "Contradicted" },
-  fragile: { tone: "amber", label: "Fragile" },
-  inconclusive: { tone: "amber", label: "Inconclusive" },
-  untested: { tone: "muted", label: "Untested" },
-  candidate: { tone: "blue", label: "Candidate" },
-  verified: { tone: "green", label: "Verified" },
-};
+/**
+ * @deprecated re-export for callers expecting the old name
+ */
+export type VerdictKind = Verdict | "candidate" | "verified";
 
 interface Props {
   kind: VerdictKind;
@@ -28,14 +15,20 @@ interface Props {
 }
 
 /**
- * Colored pill for a verdict / claim status. Standardized so the
- * same set of colors is used wherever a verdict appears.
+ * Colored pill for a verdict / claim status. Backed by the
+ * canonical PRD-002 8-state vocabulary; legacy kinds fall through
+ * to a sensible default.
  */
 export function VerdictTag({ kind, count, label }: Props) {
-  const m = MAP[kind];
+  if (kind === "candidate")
+    return <Pill tone="blue" count={count} dot>{label ?? "Candidate"}</Pill>;
+  if (kind === "verified")
+    return <Pill tone="green" count={count} dot>{label ?? "Verified"}</Pill>;
+
+  const d = VERDICT_DISPLAY[kind];
   return (
-    <Pill tone={m.tone} count={count} dot>
-      {label ?? m.label}
+    <Pill tone={d.pillTone} count={count} dot>
+      {label ?? d.label}
     </Pill>
   );
 }

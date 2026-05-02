@@ -3,33 +3,59 @@
 import { useState } from "react";
 import type { ReportClaim } from "@/app/papers/[id]/report/page";
 
-type Tab = "all" | "contradicted" | "reproduced" | "inconclusive" | "untested";
+type Tab =
+  | "all"
+  | "contradicted"
+  | "reproduced"
+  | "inconclusive"
+  | "fragile"
+  | "filtered_out";
 
 const VERDICT_COLORS: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  reproduced: { bg: "bg-[#D4EDE1]/30", border: "border-[#2D6A4F]/20", text: "text-[#2D6A4F]", dot: "bg-[#2D6A4F]" },
-  contradicted: { bg: "bg-[#F5D5D6]/30", border: "border-[#9B2226]/20", text: "text-[#9B2226]", dot: "bg-[#9B2226]" },
-  fragile: { bg: "bg-[#FFF3E0]/30", border: "border-[#E65100]/20", text: "text-[#E65100]", dot: "bg-[#E65100]" },
-  inconclusive: { bg: "bg-[#F5ECD4]/30", border: "border-[#B07D2B]/20", text: "text-[#B07D2B]", dot: "bg-[#B07D2B]" },
-  untested: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#9B9B9B]", dot: "bg-[#9B9B9B]" },
+  reproduced:     { bg: "bg-[#D4EDE1]/30", border: "border-[#2D6A4F]/20", text: "text-[#2D6A4F]", dot: "bg-[#2D6A4F]" },
+  contradicted:   { bg: "bg-[#F5D5D6]/30", border: "border-[#9B2226]/20", text: "text-[#9B2226]", dot: "bg-[#9B2226]" },
+  fragile:        { bg: "bg-[#FFF3E0]/30", border: "border-[#E65100]/20", text: "text-[#E65100]", dot: "bg-[#E65100]" },
+  inconclusive:   { bg: "bg-[#F5ECD4]/30", border: "border-[#B07D2B]/20", text: "text-[#B07D2B]", dot: "bg-[#B07D2B]" },
+  not_applicable: { bg: "bg-[#F5F3EF]",    border: "border-[#E8E5DE]",    text: "text-[#9B9B9B]", dot: "bg-[#9B9B9B]" },
+  vacuous:        { bg: "bg-[#F5F3EF]",    border: "border-[#E8E5DE]",    text: "text-[#9B9B9B]", dot: "bg-[#9B9B9B]" },
+  system_error:   { bg: "bg-[#F5D5D6]/40", border: "border-[#6A2B2B]/30", text: "text-[#6A2B2B]", dot: "bg-[#6A2B2B]" },
+  untested:       { bg: "bg-[#F5F3EF]",    border: "border-[#E8E5DE]",    text: "text-[#9B9B9B]", dot: "bg-[#C8C3B8]" },
 };
+
+const META_VERDICTS = new Set(["not_applicable", "vacuous", "system_error", "untested"]);
 
 interface Props {
   claims: ReportClaim[];
   counts: { total: number; reproduced: number; contradicted: number; inconclusive: number; untested: number };
 }
 
-export function ReportTabs({ claims, counts }: Props) {
-  const [tab, setTab] = useState<Tab>("contradicted");
+export function ReportTabs({ claims, counts: _counts }: Props) {
+  // Recompute counts from claims so we cover the new verdict states
+  const c = {
+    total: claims.length,
+    reproduced: claims.filter((x) => x.verdict === "reproduced").length,
+    contradicted: claims.filter((x) => x.verdict === "contradicted").length,
+    fragile: claims.filter((x) => x.verdict === "fragile").length,
+    inconclusive: claims.filter((x) => x.verdict === "inconclusive").length,
+    filtered_out: claims.filter((x) => META_VERDICTS.has(x.verdict)).length,
+  };
+  const [tab, setTab] = useState<Tab>(c.contradicted > 0 ? "contradicted" : "reproduced");
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "contradicted", label: "Contradicted", count: counts.contradicted },
-    { key: "reproduced", label: "Reproduced", count: counts.reproduced },
-    { key: "inconclusive", label: "Inconclusive", count: counts.inconclusive },
-    { key: "untested", label: "Untested", count: counts.untested },
-    { key: "all", label: "All Claims", count: counts.total },
+    { key: "contradicted", label: "Contradicted", count: c.contradicted },
+    { key: "reproduced", label: "Reproduced", count: c.reproduced },
+    ...(c.fragile > 0 ? [{ key: "fragile" as const, label: "Fragile", count: c.fragile }] : []),
+    { key: "inconclusive", label: "Inconclusive", count: c.inconclusive },
+    { key: "filtered_out", label: "Filtered out", count: c.filtered_out },
+    { key: "all", label: "All claims", count: c.total },
   ];
 
-  const filtered = tab === "all" ? claims : claims.filter((c) => c.verdict === tab);
+  const filtered =
+    tab === "all"
+      ? claims
+      : tab === "filtered_out"
+        ? claims.filter((c) => META_VERDICTS.has(c.verdict))
+        : claims.filter((c) => c.verdict === tab);
 
   return (
     <div>
