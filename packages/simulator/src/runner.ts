@@ -8,7 +8,17 @@ import { checkDimensions } from "./algebraic";
 
 const exec = promisify(execFile);
 
-const WORK_DIR = join(process.cwd(), ".simulations");
+/**
+ * Where the runner writes generated python scripts and reads the
+ * stdout/stderr it produces. Cloud Run's filesystem is read-only
+ * outside `/tmp`, so we honour the `SIMULATOR_WORKDIR` env var
+ * (PRD-003) and fall back to a per-process tmp dir. The legacy
+ * `process.cwd()/.simulations` path is never used; setting it caused
+ * tier-2 EACCES failures on production for every paper.
+ */
+const WORK_DIR =
+  process.env.SIMULATOR_WORKDIR ??
+  join("/tmp", "tp-simulations");
 const TIMEOUT_MS = 30_000;
 
 interface RawSimResult {

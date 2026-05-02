@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { papers, claims, simulations } from "@toiletpaper/db";
+import { papers, claims, simulations, routerDecisions } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { getHistory } from "@/lib/donto";
 import { DONTOSRV_URL } from "@toiletpaper/donto-client";
@@ -8,6 +8,7 @@ import {
   assertArgument,
   emitObligation,
 } from "@toiletpaper/donto-client/evidence";
+import { ensurePaperDomain, isPhysicsDomain } from "@/lib/router/classify";
 
 /** Assert simulation verdict quads into donto for a claim. */
 async function ingestVerdictToDonto(
@@ -143,6 +144,66 @@ export async function POST(req: Request) {
 
   await db.update(papers).set({ status: "simulating", updatedAt: new Date() }).where(eq(papers.id, paper.id));
 
+  // ── Domain gate (PRD-001) ──────────────────────────────────────────
+  // Classify the paper once and refuse to run physics simulators on
+  // papers outside the physics-adjacent domains. Out-of-domain claims
+  // are recorded as `not_applicable` in the simulations table so the
+  // UI can be honest about what was and wasn't tested.
+  const sampleClaims = paperClaims.slice(0, 12).map((c) => c.text);
+  const domain = await ensurePaperDomain(
+    paper.id,
+    paper.title,
+    paper.abstract ?? null,
+    sampleClaims,
+    apiKey,
+  );
+
+  if (!isPhysicsDomain(domain.domain)) {
+    // Mark every claim not_applicable; record one router decision per claim.
+    const naRows = paperClaims.map((c) => ({
+      claimId: c.id,
+      method: "router-not-applicable",
+      simulatorId: "router-not-applicable",
+      verdict: "not_applicable" as const,
+      result: {
+        reason: `paper domain '${domain.domain}' is not in scope for any registered simulator`,
+        confidence: 0,
+      },
+      metadata: { paper_domain: domain.domain, classifier_reason: domain.reason },
+    }));
+    if (naRows.length > 0) {
+      await db.insert(simulations).values(naRows);
+    }
+    await db.insert(routerDecisions).values(
+      paperClaims.map((c) => ({
+        paperId: paper.id,
+        claimId: c.id,
+        paperDomain: domain.domain,
+        candidates: ["mhd-harris-sheet-reconnection", "mhd-mri-shearing-box", "mhd-dynamo-onset"],
+        selected: [],
+        reason: `paper domain '${domain.domain}' not in physics-adjacent set`,
+      })),
+    );
+    await db
+      .update(papers)
+      .set({ status: "done", updatedAt: new Date() })
+      .where(eq(papers.id, paper.id));
+
+    return NextResponse.json({
+      summary: {
+        total: paperClaims.length,
+        not_applicable: paperClaims.length,
+        reproduced: 0,
+        contradicted: 0,
+        fragile: 0,
+        underdetermined: 0,
+        mhdSimulations: 0,
+      },
+      verdicts: [],
+      domain,
+    });
+  }
+
   try {
     // Enrich claims with donto metadata
     const enriched = await Promise.all(
@@ -182,8 +243,10 @@ export async function POST(req: Request) {
     } = await import("@toiletpaper/simulator/mhd");
 
     // 1. Reconnection test
-    const reconnClaims = enriched.filter((c) =>
-      c.text.toLowerCase().includes("reconnect") && (c.text.includes("0.1") || c.text.includes("v_A")),
+    // Word-boundary: "reconnect" / "reconnection", not e.g. "disreconnected".
+    const reconnRe = /\b(?:reconnect|reconnection)\b/i;
+    const reconnClaims = enriched.filter(
+      (c) => reconnRe.test(c.text) && (c.text.includes("0.1") || c.text.includes("v_A")),
     );
 
     if (reconnClaims.length > 0) {
@@ -241,8 +304,10 @@ export async function POST(req: Request) {
     }
 
     // 2. MRI viscosity test
-    const mriClaims = enriched.filter((c) =>
-      c.text.toLowerCase().includes("viscosity") || c.text.includes("α") || c.text.includes("alpha"),
+    // Word-boundary on "viscosity"/"alpha"; the bare Greek α is fine.
+    const viscRe = /\b(?:viscosity|alpha)\b/i;
+    const mriClaims = enriched.filter(
+      (c) => viscRe.test(c.text) || c.text.includes("α"),
     );
 
     if (mriClaims.length > 0) {
@@ -286,9 +351,10 @@ export async function POST(req: Request) {
     }
 
     // 3. Dynamo onset test
-    const dynamoClaims = enriched.filter((c) =>
-      c.text.toLowerCase().includes("dynamo") || c.text.toLowerCase().includes("rm"),
-    );
+    // Word-boundary "dynamo" or magnetic Reynolds number "Rm" (not the
+    // letter pair "rm" inside words like "metallurgy" / "reform").
+    const dynamoRe = /\b(?:dynamo|Rm|Re_m|magnetic\s+Reynolds)\b/i;
+    const dynamoClaims = enriched.filter((c) => dynamoRe.test(c.text));
 
     if (dynamoClaims.length > 0) {
       const Rms = [10, 20, 30, 50, 75, 100, 150];

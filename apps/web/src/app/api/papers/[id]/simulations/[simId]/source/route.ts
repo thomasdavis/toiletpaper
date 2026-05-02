@@ -30,8 +30,9 @@ export async function GET(
     );
   }
 
-  const simDir = join(process.cwd(), ".simulations", id);
-  const filePath = join(simDir, filename);
+  const workdir =
+    process.env.SIMULATOR_WORKDIR ?? join("/tmp", "tp-simulations");
+  const filePath = join(workdir, id, filename);
 
   try {
     const code = await readFile(filePath, "utf-8");
