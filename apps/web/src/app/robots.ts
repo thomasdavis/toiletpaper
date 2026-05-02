@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/styleguide"],
+        disallow: ["/api/", "/internal/"],
       },
     ],
     sitemap: "https://toiletpaper.dev/sitemap.xml",

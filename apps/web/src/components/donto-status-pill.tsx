@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { paperDontoIngest } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { Pill } from "@/components/brand";
+import { DontoRetryButton } from "@/components/donto-retry-button";
 
 interface Props {
   paperId: string;
@@ -55,9 +56,12 @@ export async function DontoStatusPill({ paperId }: Props) {
       );
     case "failed":
       return (
-        <Pill tone="red" dot>
-          Donto · {row.lastErrorCode ?? "ingest failed"}
-        </Pill>
+        <span className="inline-flex items-center gap-1.5">
+          <Pill tone="red" dot>
+            Donto · {row.lastErrorCode ?? "ingest failed"}
+          </Pill>
+          <DontoRetryButton paperId={paperId} />
+        </span>
       );
     case "skipped":
       return (

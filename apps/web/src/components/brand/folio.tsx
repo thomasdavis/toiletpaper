@@ -6,7 +6,7 @@ const ROMAN: Record<string, string> = {
   "/": "i",
   "/papers": "ii",
   "/upload": "iii",
-  "/styleguide": "iv",
+  "/internal/styleguide": "iv",
 };
 
 const SUB: Record<string, string> = {

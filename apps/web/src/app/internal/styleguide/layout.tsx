@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Styleguide",
   description:
     "toiletpaper component and design tokens reference — colors, typography, layout primitives, and reusable UI building blocks.",
-  alternates: { canonical: "/styleguide" },
+  alternates: { canonical: "/internal/styleguide" },
   robots: { index: false, follow: true },
 };
 
