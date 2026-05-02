@@ -1,0 +1,9 @@
+apexpots.com
+api.apexpots.com
+console.apexpots.com
+hello.apexpots.com
+toiletpaper.apexpots.com
+toiletpaper.dev
+www.apexpots.com
+www.toiletpaper.dev
+tpmjs.apexpots.com

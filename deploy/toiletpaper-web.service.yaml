@@ -1,0 +1,67 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '12'
+    run.googleapis.com/urls: '["https://toiletpaper-web-587706120371.us-central1.run.app","https://toiletpaper-web-pghtxebp2q-uc.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: us-central1
+  name: toiletpaper-web
+  namespace: '587706120371'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '3'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 539.0.0
+        run.googleapis.com/cloudsql-instances: apex-494316:us-central1:apex-postgres-staging
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: ixtflrlvtf
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 80
+      containers:
+      - env:
+        - name: NODE_ENV
+          value: production
+        - name: DONTOSRV_URL
+          value: https://dontosrv-587706120371.us-central1.run.app
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: tp-database-url
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: tp-openai-api-key
+        - name: UPLOADS_BUCKET
+          value: apex-494316-source-staging
+        - name: UPLOADS_DIR
+          value: /tmp/uploads
+        - name: SIMULATOR_WORKDIR
+          value: /tmp/tp-simulations
+        image: us-central1-docker.pkg.dev/apex-494316/apex-platform/toiletpaper-web:latest
+        ports:
+        - containerPort: 3001
+          name: http1
+        resources:
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 3001
+          timeoutSeconds: 240
+      serviceAccountName: apex-apiserver-sa@apex-494316.iam.gserviceaccount.com
+      timeoutSeconds: 1800
+  traffic:
+  - latestRevision: true
+    percent: 100
