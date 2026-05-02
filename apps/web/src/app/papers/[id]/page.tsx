@@ -7,6 +7,7 @@ import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { PaperStatusBadge } from "@/components/paper-status-badge";
+import { DontoStatusPill } from "@/components/donto-status-pill";
 import { ClaimCard } from "@/components/claim-card";
 import { DontoContextInfo } from "@/components/donto-context-info";
 import { DontoDetails } from "@/components/donto-details";
@@ -120,8 +121,8 @@ export default async function PaperDetailPage({
             </Text>
           )}
 
-          {paper.pdfUrl && (
-            <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {paper.pdfUrl && (
               <a
                 href={`/api/papers/${id}/source`}
                 target="_blank"
@@ -134,8 +135,14 @@ export default async function PaperDetailPage({
                 </svg>
                 Source PDF
               </a>
-            </div>
-          )}
+            )}
+            <DontoStatusPill paperId={id} />
+            {paper.domain && paper.domain !== "unknown" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#E8E5DE] bg-[#FAFAF8] px-2.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.18em] text-[#6B6B6B]">
+                domain · {paper.domain}
+              </span>
+            )}
+          </div>
         </div>
 
         <PaperTabs
