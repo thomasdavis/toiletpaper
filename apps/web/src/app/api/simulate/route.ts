@@ -162,109 +162,7 @@ export async function POST(req: Request) {
     apiKey,
   );
 
-  if (!isPhysicsDomain(domain.domain)) {
-    // Mark every claim not_applicable; record one router decision per claim.
-    const naRows = paperClaims.map((c) => ({
-      claimId: c.id,
-      method: "router-not-applicable",
-      simulatorId: "router-not-applicable",
-      verdict: "not_applicable" as const,
-      result: {
-        reason: `paper domain '${domain.domain}' is not in scope for any registered simulator`,
-        confidence: 0,
-      },
-      metadata: { paper_domain: domain.domain, classifier_reason: domain.reason },
-    }));
-    if (naRows.length > 0) {
-      await db.insert(simulations).values(naRows);
-    }
-    await db.insert(routerDecisions).values(
-      paperClaims.map((c) => ({
-        paperId: paper.id,
-        claimId: c.id,
-        paperDomain: domain.domain,
-        candidates: ["mhd-harris-sheet-reconnection", "mhd-mri-shearing-box", "mhd-dynamo-onset"],
-        selected: [],
-        reason: `paper domain '${domain.domain}' not in physics-adjacent set`,
-      })),
-    );
-    // PRD-009 — build replication plans for non-physics papers
-    const statements: DontoStatementInput[] = [];
-    for (const claim of paperClaims) {
-      if (!claim.dontoSubjectIri) continue;
-      try {
-        const h = await getHistory(claim.dontoSubjectIri);
-        for (const r of h?.rows ?? []) {
-          statements.push({
-            statementId: r.statement_id,
-            subject: r.subject,
-            predicate: r.predicate,
-            object_iri: r.object_iri,
-            object_lit: r.object_lit
-              ? { v: r.object_lit.v as string | number | boolean, dt: r.object_lit.dt }
-              : null,
-            context: r.context,
-          });
-        }
-      } catch (_e) { /* dontosrv may be down */ }
-    }
-
-    const units = buildReplicationUnitsFromDonto({
-      paperId: paper.id,
-      claimIriPrefix: "tp:claim",
-      statements,
-    });
-
-    if (units.length > 0) {
-      await db.insert(replicationUnits).values(
-        units.map((u) => ({
-          id: u.id,
-          paperId: u.paperId,
-          claimIri: u.claimIri,
-          sourceStatementIds: u.sourceStatementIds,
-          domain: u.domain,
-          unitType: u.unitType,
-          claimText: u.claimText,
-          evidenceQuotes: u.evidenceQuotes,
-          hypothesis: u.hypothesis,
-          expectedOutcome: u.expectedOutcome,
-          falsificationCriteria: u.falsificationCriteria,
-          requiredArtifacts: u.requiredArtifacts,
-          datasets: u.datasets,
-          methods: u.methods,
-          metrics: u.metrics,
-          baselines: u.baselines,
-          parameters: u.parameters,
-          computeBudget: u.computeBudget,
-          verifierCandidates: u.verifierCandidates,
-          planner: u.planner,
-          state: u.state,
-          blockers: u.blockers,
-        })),
-      ).onConflictDoNothing();
-    }
-
-    await db
-      .update(papers)
-      .set({ status: "done", updatedAt: new Date() })
-      .where(eq(papers.id, paper.id));
-
-    return NextResponse.json({
-      summary: {
-        total: paperClaims.length,
-        not_applicable: paperClaims.length,
-        reproduced: 0,
-        contradicted: 0,
-        fragile: 0,
-        underdetermined: 0,
-        mhdSimulations: 0,
-        replicationUnitsPlanned: units.length,
-      },
-      verdicts: [],
-      replicationUnits: units,
-      domain,
-    });
-  }
+  const isPhysics = isPhysicsDomain(domain.domain);
 
   try {
     // Enrich claims with donto metadata
@@ -295,7 +193,8 @@ export async function POST(req: Request) {
       llmAnalysis: string;
     }> = [];
 
-    // ── MHD Simulations ─────────────────────────────────────────────
+    // ── MHD Simulations (physics domains only) ────────────────────
+    if (isPhysics) {
     const {
       harrisSheet, mriShearingBox, dynamoOnset,
       integrate, totalEnergy, totalDivB,
@@ -454,8 +353,9 @@ export async function POST(req: Request) {
         }
       }
     }
+    } // end isPhysics MHD block
 
-    // 4. LLM-based triage + simulation for remaining claims
+    // 4. LLM-based triage + agentic simulation for ALL remaining claims
     const testedClaimIds = new Set(verdicts.map((v) => v.claimId));
     const remaining = enriched.filter((c) => !testedClaimIds.has(c.id));
 
