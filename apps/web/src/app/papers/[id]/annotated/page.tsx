@@ -110,8 +110,8 @@ async function loadPaperText(
   const gs = parseGs(paper.pdfUrl);
   if (gs) {
     try {
-      const buf = await getObject(gs.bucket, gs.object);
-      const ext = gs.object.split(".").pop()?.toLowerCase() ?? "";
+      const buf = await getObject(gs.bucket, gs.key);
+      const ext = gs.key.split(".").pop()?.toLowerCase() ?? "";
       return await decodeContent(buf, ext);
     } catch {
       return null;
