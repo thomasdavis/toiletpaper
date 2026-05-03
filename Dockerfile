@@ -7,7 +7,7 @@ RUN corepack enable
 WORKDIR /app/toiletpaper
 
 # Copy the donto client that toiletpaper references via file:
-COPY donto/packages/client-ts /app/donto/packages/client-ts
+COPY donto/packages/donto-client /app/donto/packages/donto-client
 
 # Copy toiletpaper workspace files
 COPY toiletpaper/package.json toiletpaper/pnpm-lock.yaml toiletpaper/pnpm-workspace.yaml toiletpaper/turbo.json ./
