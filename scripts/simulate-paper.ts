@@ -170,7 +170,22 @@ async function main() {
   spec += `]\n`;
   spec += `\`\`\`\n\n`;
   spec += `Work in ${workDir}. Write simulation scripts there. Focus on the most testable claims first.\n`;
-  spec += `Do not skip claims just because they're hard — build whatever physics/ML infrastructure you need.\n`;
+  spec += `Do not skip claims just because they're hard — build whatever physics/ML infrastructure you need.\n\n`;
+
+  spec += `## Discord Reporting\n\n`;
+  spec += `After writing results.json, send a full report to Discord via this webhook:\n\n`;
+  spec += `\`\`\`\n`;
+  spec += `https://discord.com/api/webhooks/1500500494471397467/v3uYy70jnidcnrBWqviVSfAQKhtoNnHZDlpm3X3unAZOFEEaB-ppFLqN7HeOgTODPIbH\n`;
+  spec += `\`\`\`\n\n`;
+  spec += `Send a POST with \`Content-Type: application/json\` and body \`{"content": "..."}\`.\n`;
+  spec += `Discord has a 2000 character limit per message — split into multiple messages as needed.\n\n`;
+  spec += `The report should include:\n`;
+  spec += `1. **Header message:** Paper title, author, number of claims, overall verdict summary (reproduced/contradicted/fragile/underdetermined counts)\n`;
+  spec += `2. **Per-claim messages:** For each claim, include the claim text (truncated), test type, verdict, confidence, key measurements, and a 1-2 sentence explanation of what the simulation found\n`;
+  spec += `3. **Code highlights:** For the most interesting simulations (reproduced or contradicted), include a short code snippet or key numerical output showing the evidence\n`;
+  spec += `4. **Final message:** Any reusable modules added to the shared library, and a link to the paper page: https://toiletpaper-web-587706120371.us-central1.run.app/papers/${paperId}\n\n`;
+  spec += `Use markdown formatting (Discord supports it). Send messages sequentially — wait for each to succeed before sending the next.\n`;
+  spec += `Use curl to send: \`curl -H "Content-Type: application/json" -d '{"content":"..."}' <webhook_url>\`\n`;
 
   writeFileSync(specPath, spec);
   console.log(`Spec written to ${specPath}`);
