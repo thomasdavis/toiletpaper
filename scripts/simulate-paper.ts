@@ -185,8 +185,13 @@ async function main() {
   spec += `The report should include:\n`;
   spec += `1. **Header message:** Paper title, author, number of claims, overall verdict summary (reproduced/contradicted/fragile/underdetermined counts)\n`;
   spec += `2. **Per-claim messages:** For each claim, include the claim text (truncated), test type, verdict, confidence, key measurements, and a 1-2 sentence explanation of what the simulation found\n`;
-  spec += `3. **Code highlights:** For the most interesting simulations (reproduced or contradicted), include a short code snippet or key numerical output showing the evidence\n`;
-  spec += `4. **Final message:** Any reusable modules added to the shared library, and a link to the paper page: https://toiletpaper-web-587706120371.us-central1.run.app/papers/${paperId}\n\n`;
+  spec += `3. **Code report (IMPORTANT):** Dedicate 1-3 messages to describing the simulation code you wrote:\n`;
+  spec += `   - List each simulation script file name and what it does (1 line each)\n`;
+  spec += `   - For the most interesting scripts, show the core algorithm (10-20 lines of the key logic, not boilerplate)\n`;
+  spec += `   - Explain what approach you took (e.g. "trained a 3-layer MLP on Split-MNIST with 5 epochs per task" or "swept coupling K from 0-5 and measured order parameter")\n`;
+  spec += `   - Mention any shared library modules you reused or created\n`;
+  spec += `   - Include key numerical outputs that drove the verdicts (e.g. "measured α=0.48, expected 0.5, within 4%")\n`;
+  spec += `4. **Final message:** Link to the paper page: https://toiletpaper-web-587706120371.us-central1.run.app/papers/${paperId}\n\n`;
   spec += `Use markdown formatting (Discord supports it). Send messages sequentially — wait for each to succeed before sending the next.\n`;
   spec += `Use curl to send: \`curl -H "Content-Type: application/json" -d '{"content":"..."}' <webhook_url>\`\n`;
 
