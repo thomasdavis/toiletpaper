@@ -11,28 +11,29 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@toiletpaper/db": "workspace:*",
     "@toiletpaper/donto-client": "workspace:*",
     "@toiletpaper/extractor": "workspace:*",
     "@toiletpaper/simulator": "workspace:*",
     "@toiletpaper/ui": "workspace:*",
-    "openai": "^4.86.0",
     "drizzle-orm": "^0.44.0",
     "next": "^15.3.2",
+    "openai": "^4.86.0",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
     "@toiletpaper/eslint-config": "workspace:*",
     "@toiletpaper/typescript-config": "workspace:*",
     "@types/node": "^22.9.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@tailwindcss/postcss": "^4.1.0",
-    "tailwindcss": "^4.1.0",
+    "eslint": "^9.17.0",
     "postcss": "^8.4.49",
-    "typescript": "^5.7.2",
-    "eslint": "^9.17.0"
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.2"
   }
 }
