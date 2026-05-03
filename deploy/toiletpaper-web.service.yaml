@@ -35,11 +35,11 @@ spec:
             secretKeyRef:
               key: latest
               name: tp-database-url
-        - name: OPENAI_API_KEY
+        - name: OPENROUTER_API_KEY
           valueFrom:
             secretKeyRef:
               key: latest
-              name: tp-openai-api-key
+              name: tp-openrouter-api-key
         - name: UPLOADS_BUCKET
           value: apex-494316-source-staging
         - name: UPLOADS_DIR

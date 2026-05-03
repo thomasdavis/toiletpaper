@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1.7
+# Toiletpaper web — Next.js 15 pnpm monorepo build
+# Build context: parent of toiletpaper/ and donto/ (~/repos/donto)
+
+FROM node:22-alpine AS deps
+RUN corepack enable
+WORKDIR /app/toiletpaper
+
+# Copy the donto client that toiletpaper references via file:
+COPY donto/packages/client-ts /app/donto/packages/client-ts
+
+# Copy toiletpaper workspace files
+COPY toiletpaper/package.json toiletpaper/pnpm-lock.yaml toiletpaper/pnpm-workspace.yaml toiletpaper/turbo.json ./
+COPY toiletpaper/apps/web/package.json apps/web/package.json
+COPY toiletpaper/packages/db/package.json packages/db/package.json
+COPY toiletpaper/packages/donto-client/package.json packages/donto-client/package.json
+COPY toiletpaper/packages/extractor/package.json packages/extractor/package.json
+COPY toiletpaper/packages/simulator/package.json packages/simulator/package.json
+COPY toiletpaper/packages/ui/package.json packages/ui/package.json
+COPY toiletpaper/packages/eslint-config/package.json packages/eslint-config/package.json
+COPY toiletpaper/packages/typescript-config/package.json packages/typescript-config/package.json
+RUN pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+
+FROM node:22-alpine AS build
+RUN corepack enable
+WORKDIR /app/toiletpaper
+COPY --from=deps /app/donto /app/donto
+COPY --from=deps /app/toiletpaper/node_modules ./node_modules
+COPY --from=deps /app/toiletpaper/packages ./packages
+COPY toiletpaper/ .
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+RUN pnpm --filter @toiletpaper/web build
+
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3001
+RUN addgroup -g 1001 -S app && adduser -S app -u 1001
+
+# Claude CLI for OAuth-based simulation codegen
+RUN npm install -g @anthropic-ai/claude-code
+
+COPY --from=build /app/toiletpaper/apps/web/.next/standalone ./
+COPY --from=build /app/toiletpaper/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build /app/toiletpaper/apps/web/public ./apps/web/public 2>/dev/null || true
+USER app
+EXPOSE 3001
+CMD ["node", "apps/web/server.js"]

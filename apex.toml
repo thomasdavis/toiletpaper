@@ -1,0 +1,28 @@
+[project]
+name = "toiletpaper"
+region = "us-central1"
+
+[databases.tp-db]
+engine = "postgres"
+version = "16"
+tier = "db-custom-1-3840"
+storage_gb = 20
+extensions = ["btree_gist", "pgcrypto"]
+databases = ["toiletpaper"]
+
+[secrets.tp-database-url]
+description = "Postgres connection string for toiletpaper"
+
+[secrets.tp-openrouter-api-key]
+description = "OpenRouter API key for Grok 4.1 mini (triage, extraction, classification, judging)"
+
+[services.web]
+path = "."
+port = 3001
+healthcheck = "/"
+dockerfile = "Dockerfile"
+env = { NODE_ENV = { value = "production" }, DONTOSRV_URL = { value = "https://dontosrv-587706120371.us-central1.run.app" }, DATABASE_URL = { from_secret = "tp-database-url" }, OPENROUTER_API_KEY = { from_secret = "tp-openrouter-api-key" }, UPLOADS_BUCKET = { value = "apex-494316-source-staging" }, UPLOADS_DIR = { value = "/tmp/uploads" }, SIMULATOR_WORKDIR = { value = "/tmp/tp-simulations" } }
+
+[routes.main]
+hostname = "dontopedia.apexpots.com"
+service = "web"
