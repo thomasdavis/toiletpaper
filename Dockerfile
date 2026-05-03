@@ -7,7 +7,7 @@ RUN corepack enable
 WORKDIR /app/toiletpaper
 
 # Copy the donto client that toiletpaper references via file:
-COPY donto/packages/donto-client /app/donto/packages/donto-client
+COPY donto/packages/client-ts /app/donto/packages/client-ts
 
 # Copy full toiletpaper source
 COPY toiletpaper/ .

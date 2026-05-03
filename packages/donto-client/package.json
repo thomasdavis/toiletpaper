@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@donto/client": "file:../../../donto/packages/donto-client"
+    "@donto/client": "file:../../../donto/packages/client-ts"
   },
   "devDependencies": {
     "@toiletpaper/typescript-config": "workspace:*",

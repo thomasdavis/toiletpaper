@@ -110,8 +110,8 @@ importers:
   packages/donto-client:
     dependencies:
       '@donto/client':
-        specifier: file:../../../donto/packages/donto-client
-        version: donto-client@file:../donto/packages/donto-client
+        specifier: file:../../../donto/packages/client-ts
+        version: file:../donto/packages/client-ts
     devDependencies:
       '@toiletpaper/typescript-config':
         specifier: workspace:*
@@ -214,6 +214,9 @@ packages:
 
   '@anthropic-ai/sdk@0.39.0':
     resolution: {integrity: sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==}
+
+  '@donto/client@file:../donto/packages/client-ts':
+    resolution: {directory: ../donto/packages/client-ts, type: directory}
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -1448,9 +1451,6 @@ packages:
   dfa@1.2.0:
     resolution: {integrity: sha512-ED3jP8saaweFTjeGX8HQPjeC1YYyZs98jGNZx6IiBvxW7JG5v492kamAQB3m2wop07CvU/RQmzcKr6bgcC5D/Q==}
 
-  donto-client@file:../donto/packages/donto-client:
-    resolution: {directory: ../donto/packages/donto-client, type: directory}
-
   drizzle-kit@0.30.6:
     resolution: {integrity: sha512-U4wWit0fyZuGuP7iNmRleQyK2V8wCuv57vf5l3MnG4z4fzNTjY/U13M8owyQ5RavqvqxBifWORaR3wIUzlN64g==}
     hasBin: true
@@ -2370,6 +2370,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
+  '@donto/client@file:../donto/packages/client-ts': {}
+
   '@drizzle-team/brocli@0.10.2': {}
 
   '@emnapi/runtime@1.10.0':
@@ -3272,8 +3274,6 @@ snapshots:
   detect-libc@2.1.2: {}
 
   dfa@1.2.0: {}
-
-  donto-client@file:../donto/packages/donto-client: {}
 
   drizzle-kit@0.30.6:
     dependencies:
