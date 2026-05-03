@@ -67,7 +67,7 @@ export async function POST(
     );
   }
 
-  const isPdf = gs.object.toLowerCase().endsWith(".pdf");
+  const isPdf = gs.key.toLowerCase().endsWith(".pdf");
   let textForExtraction: string;
   if (isPdf) {
     const { extractTextFromPdf } = await import("@toiletpaper/extractor");
