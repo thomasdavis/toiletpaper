@@ -58,7 +58,7 @@ export async function generateSimulationCode(
   const claimSpec = JSON.stringify(claim, null, 2);
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-4",
+    model: "x-ai/grok-4.1-fast",
     max_tokens: 8192,
     messages: [
       { role: "system", content: CODEGEN_PROMPT },

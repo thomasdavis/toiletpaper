@@ -161,7 +161,7 @@ export async function addLlmAnalysis(
   const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-3-mini",
+    model: "x-ai/grok-4.1-fast",
     messages: [
       {
         role: "system",

@@ -58,7 +58,7 @@ export async function triageClaims(
 
     try {
       const response = await client.chat.completions.create({
-        model: "x-ai/grok-3-mini",
+        model: "x-ai/grok-4.1-fast",
         messages: [
           { role: "system", content: TRIAGE_PROMPT },
           { role: "user", content: `Paper: ${paperAbstract.slice(0, 500)}\n\nClaims:\n${claimsText}` },
