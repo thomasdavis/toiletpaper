@@ -59,7 +59,7 @@ export async function POST(
 
   let buf: Buffer;
   try {
-    buf = await getObject(gs.bucket, gs.object);
+    buf = await getObject(gs.bucket, gs.key);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "fetch failed" },
