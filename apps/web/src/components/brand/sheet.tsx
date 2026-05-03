@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface Props {
-  children: ReactNode;
+  children?: ReactNode;
   /** Pre-heading number/label, e.g. "01". */
   index?: string;
   /** Title shown beneath the index. */
