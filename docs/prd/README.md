@@ -25,6 +25,10 @@ PRD-004 (extractor v2)  ────────┤
 PRD-005 (donto reliability)  ── parallel; required for PRD-008's
                                   Donto status pill
 PRD-007 (deploy stability)   ── parallel; unblocks confident shipping
+
+PRD-009 (local replication)  ── follows PRD-004/005/006; generalizes
+                                  the engine from physics simulations
+                                  to Donto-native replication units
 ```
 
 Recommended start: **PRD-002 first** (it's a vocabulary fix that lets
@@ -44,14 +48,12 @@ PRD-002, PRD-003, and PRD-004 are at P0.
 | [PRD-006](PRD-006-async-simulation-pipeline.md) | Async simulation pipeline | Cloud Tasks-backed worker; resume after crash; SSE progress; idempotent re-runs. |
 | [PRD-007](PRD-007-cloud-run-deployment-stability.md) | Cloud Run deployment stability | Declarative `services replace` from a checked-in YAML; drift detector; cert-renewal from a SAN file. |
 | [PRD-008](PRD-008-ui-honesty.md) | UI honesty pass | Two-row distribution bar, per-claim "why no verdict?", Donto pill, source-PDF link, lazy-loaded detail page. |
+| [PRD-009](PRD-009-donto-local-replication-planner.md) | Donto-native local replication planner | Compile Donto/Qwen claim bundles into replication units; route to local/deterministic verifiers; store plans, blockers, runs, and verdicts back in Donto. |
 
 ## What this set deliberately does *not* cover
 
 These are P3+ and intentionally out of scope for the current set:
 
-- A reproducibility verifier for non-physics domains (citation
-  corroboration for history, theorem checking for math, …). Mentioned
-  in PRD-001 as a follow-up.
 - Multi-tenant authentication / billing.
 - Replacement of pdf-parse with a custom PDF parser.
 - Multi-region deploy.
