@@ -1,14 +1,5 @@
-import { readFileSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { TestableClaim, SimulationPlan, ParameterSweep } from "./schema";
-
-function getClaudeOAuthToken(): string {
-  const credPath = join(homedir(), ".claude", ".credentials.json");
-  const creds = JSON.parse(readFileSync(credPath, "utf-8"));
-  return creds.claudeAiOauth.accessToken;
-}
 
 const CODEGEN_PROMPT = `You are a computational physics agent. Given a testable scientific claim, generate Python simulation code to test it.
 
@@ -60,17 +51,17 @@ For baseline_contrast claims (e.g., P ∝ B^{3/2} vs P ∝ B^2):
 
 export async function generateSimulationCode(
   claim: TestableClaim,
-  _apiKey: string,
+  apiKey: string,
 ): Promise<{ baselineCode: string; proposedCode: string; combinedCode: string }> {
-  const client = new Anthropic({ apiKey: getClaudeOAuthToken() });
+  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
 
   const claimSpec = JSON.stringify(claim, null, 2);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+  const response = await client.chat.completions.create({
+    model: "x-ai/grok-4",
     max_tokens: 8192,
-    system: CODEGEN_PROMPT,
     messages: [
+      { role: "system", content: CODEGEN_PROMPT },
       {
         role: "user",
         content: `Generate a self-contained Python simulation script to test this claim:
@@ -90,7 +81,7 @@ Return ONLY the Python code, no markdown fences.`,
     temperature: 0.1,
   });
 
-  const code = response.content[0]?.type === "text" ? response.content[0].text : "";
+  const code = response.choices[0]?.message?.content ?? "";
 
   const cleaned = code
     .replace(/^```python\n?/m, "")
