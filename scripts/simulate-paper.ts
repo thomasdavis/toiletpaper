@@ -207,7 +207,8 @@ async function main() {
   const WEB_URL = process.env.WEB_URL ?? "https://toiletpaper-web-587706120371.us-central1.run.app";
 
   // Find the JSONL project dir for this workDir
-  const encodedCwd = resolve(workDir).replace(/\//g, "-").replace(/^-/, "");
+  // Claude encodes paths as: /foo/bar → -foo-bar (leading dash kept, dots become literal)
+  const encodedCwd = resolve(workDir).replace(/\//g, "-");
   const claudeProjectDir = join(homedir(), ".claude", "projects", encodedCwd);
 
   // Start tailing JSONL in background and POST events to the API
