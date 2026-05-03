@@ -51,7 +51,7 @@ spec:
           value: /tmp/uploads
         - name: SIMULATOR_WORKDIR
           value: /tmp/tp-simulations
-        image: us-central1-docker.pkg.dev/apex-494316/apex-platform/toiletpaper-web:latest
+        image: us-central1-docker.pkg.dev/apex-494316/apex-platform/toiletpaper-web@sha256:129539a981320d8e77cc60a8591a45af724a8b9c5ef73e46cc88671660289a4b
         ports:
         - containerPort: 3001
           name: http1

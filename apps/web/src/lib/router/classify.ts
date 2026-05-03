@@ -78,7 +78,7 @@ export async function classifyPaperDomain(
   ].filter(Boolean).join("");
 
   const completion = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-mini",
+    model: "x-ai/grok-3-mini",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: user },

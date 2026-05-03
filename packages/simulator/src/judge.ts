@@ -53,7 +53,7 @@ export async function judgeResult(
   };
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-mini",
+    model: "x-ai/grok-3-mini",
     messages: [
       { role: "system", content: JUDGE_PROMPT },
       { role: "user", content: JSON.stringify(summary, null, 2) },

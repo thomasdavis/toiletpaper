@@ -75,7 +75,7 @@ export async function extractClaimsFromText(
   const truncated = text.length > 100_000 ? text.slice(0, 100_000) : text;
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-mini",
+    model: "x-ai/grok-3-mini",
     messages: [
       { role: "system", content: EXTRACTION_PROMPT },
       {
