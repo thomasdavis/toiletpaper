@@ -70,11 +70,23 @@ async function main() {
   }
 
   // 4. Write simulation spec
-  const workDir = join(process.cwd(), ".simulations", paperId);
+  const simRoot = join(process.cwd(), ".simulations");
+  const libDir = join(simRoot, "lib");
+  const workDir = join(simRoot, paperId);
   mkdirSync(workDir, { recursive: true });
+  mkdirSync(libDir, { recursive: true });
 
   const specPath = join(workDir, "spec.md");
   const resultsPath = join(workDir, "results.json");
+
+  // Scan shared lib for existing modules
+  const libModules: string[] = [];
+  if (existsSync(libDir)) {
+    const { readdirSync } = await import("node:fs");
+    for (const f of readdirSync(libDir)) {
+      if (f.endsWith(".py")) libModules.push(f);
+    }
+  }
 
   let spec = `# Simulation Spec: ${paper.title}\n\n`;
   spec += `**Paper ID:** ${paperId}\n`;
@@ -92,6 +104,20 @@ async function main() {
     spec += `**Donto IRI:** ${claim.dontoIri ?? "none"}\n\n`;
   }
 
+  spec += `## Shared Simulation Library\n\n`;
+  spec += `**Library path:** \`${libDir}/\`\n\n`;
+  if (libModules.length > 0) {
+    spec += `The following reusable modules already exist from previous paper simulations:\n\n`;
+    for (const m of libModules) {
+      spec += `- \`${libDir}/${m}\`\n`;
+    }
+    spec += `\n**Read these modules first.** Import and reuse them instead of rewriting.\n`;
+    spec += `Add \`sys.path.insert(0, "${libDir}")\` at the top of your simulation scripts.\n\n`;
+  } else {
+    spec += `No shared modules exist yet. You are the first run — any reusable code you write\n`;
+    spec += `will be available to all future paper simulations.\n\n`;
+  }
+
   spec += `## Instructions for Claude Code\n\n`;
   spec += `You are simulating claims from a scientific paper. For each testable claim:\n\n`;
   spec += `1. **Determine testability:** Is this claim testable with computation? Categories:\n`;
@@ -101,19 +127,31 @@ async function main() {
   spec += `   - "algebraic": test with symbolic math / dimensional analysis\n`;
   spec += `   - "ml_benchmark": test by training models and comparing metrics\n`;
   spec += `   - "not_testable": skip\n\n`;
-  spec += `2. **Write the simulation from scratch.** Use Python with numpy/scipy. For ML claims, use PyTorch if available.\n`;
+  spec += `2. **Check the shared library** at \`${libDir}/\` for existing utilities before writing new code.\n`;
+  spec += `   Import reusable modules with: \`sys.path.insert(0, "${libDir}")\`\n\n`;
+  spec += `3. **Write the simulation.** Use Python with numpy/scipy. For ML claims, use PyTorch if available.\n`;
   spec += `   - Always implement BOTH the baseline model and the proposed model\n`;
   spec += `   - Include convergence tests (run at 2+ resolutions)\n`;
   spec += `   - Include conservation/sanity checks\n`;
   spec += `   - Include parameter sweeps where applicable\n\n`;
-  spec += `3. **Run the simulation** and collect results.\n\n`;
-  spec += `4. **Judge the results** deterministically:\n`;
+  spec += `4. **Run the simulation** and collect results.\n\n`;
+  spec += `5. **Judge the results** deterministically:\n`;
   spec += `   - "reproduced": simulation confirms claim within 5% tolerance\n`;
   spec += `   - "contradicted": simulation produces inconsistent results\n`;
   spec += `   - "fragile": result depends on parameters/resolution\n`;
   spec += `   - "underdetermined": not enough info to decide\n`;
   spec += `   - "not_simulable": can't test computationally\n\n`;
-  spec += `5. **Write results** to ${resultsPath} as JSON array:\n`;
+  spec += `6. **Extract reusable code into the shared library.** After finishing all simulations,\n`;
+  spec += `   identify any functions or classes that would be useful for future papers and copy\n`;
+  spec += `   them into \`${libDir}/\` as standalone modules. Good candidates:\n`;
+  spec += `   - ODE/PDE solvers (Kuramoto, diffusion, wave equations, etc.)\n`;
+  spec += `   - Parameter sweep runners with convergence testing\n`;
+  spec += `   - Statistical comparison utilities (effect size, bootstrap CI, etc.)\n`;
+  spec += `   - ML training loops with seed averaging\n`;
+  spec += `   - Dimensional analysis checkers\n`;
+  spec += `   - Result formatting / JSON output helpers\n`;
+  spec += `   Each module should have a docstring explaining what it does and example usage.\n\n`;
+  spec += `7. **Write results** to ${resultsPath} as JSON array:\n`;
   spec += `\`\`\`json\n`;
   spec += `[\n`;
   spec += `  {\n`;
@@ -132,7 +170,7 @@ async function main() {
   spec += `]\n`;
   spec += `\`\`\`\n\n`;
   spec += `Work in ${workDir}. Write simulation scripts there. Focus on the most testable claims first.\n`;
-  spec += `Do not skip claims just because they're hard — build whatever physics/ML infrastructure you need from scratch.\n`;
+  spec += `Do not skip claims just because they're hard — build whatever physics/ML infrastructure you need.\n`;
 
   writeFileSync(specPath, spec);
   console.log(`Spec written to ${specPath}`);
@@ -141,7 +179,7 @@ async function main() {
   // 5. Invoke Claude Code
   console.log(`\nInvoking Claude Code...\n`);
 
-  const claudePrompt = `Read the simulation spec at ${specPath}. Build and run simulations for each testable claim in the paper "${paper.title}". Write all code from scratch in ${workDir}. Write final results to ${resultsPath}. Focus on the strongest testable claims first. Do not ask for confirmation — just build, run, and judge.`;
+  const claudePrompt = `Read the simulation spec at ${specPath}. Build and run simulations for each testable claim in the paper "${paper.title}". Check the shared library at ${libDir}/ for reusable modules before writing new code. Write simulation scripts in ${workDir}. After all simulations are done, extract any reusable functions into ${libDir}/ as standalone Python modules with docstrings. Write final results to ${resultsPath}. Focus on the strongest testable claims first. Do not ask for confirmation — just build, run, and judge.`;
 
   try {
     execSync(
