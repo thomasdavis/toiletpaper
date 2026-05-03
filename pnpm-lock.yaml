@@ -47,6 +47,9 @@ importers:
       next:
         specifier: ^15.3.2
         version: 15.5.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      openai:
+        specifier: ^4.86.0
+        version: 4.104.0
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
