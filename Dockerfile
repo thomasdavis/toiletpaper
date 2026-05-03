@@ -30,7 +30,6 @@ RUN npm install -g @anthropic-ai/claude-code
 
 COPY --from=build /app/toiletpaper/apps/web/.next/standalone ./
 COPY --from=build /app/toiletpaper/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build /app/toiletpaper/apps/web/public ./apps/web/public 2>/dev/null || true
 
 USER app
 RUN mkdir -p /home/app/.claude
