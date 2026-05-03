@@ -283,3 +283,61 @@ export const simulationJobs = pgTable(
       .where(sql`${t.state} IN ('queued', 'running')`),
   }),
 );
+
+// ────────────────────────────────────────────────────────────────────────────
+// PRD-009 — replication_units: Donto-native replication planning
+// ────────────────────────────────────────────────────────────────────────────
+
+export const replicationStateEnum = pgEnum("replication_state", [
+  "planned",
+  "blocked",
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+]);
+
+export const replicationUnits = pgTable(
+  "replication_units",
+  {
+    id: text("id").primaryKey(),
+    paperId: uuid("paper_id")
+      .references(() => papers.id, { onDelete: "cascade" })
+      .notNull(),
+    claimId: uuid("claim_id").references(() => claims.id, {
+      onDelete: "set null",
+    }),
+    claimIri: text("claim_iri").notNull(),
+    sourceStatementIds: text("source_statement_ids").array().default([]).notNull(),
+    domain: text("domain").notNull(),
+    unitType: text("unit_type").notNull(),
+    claimText: text("claim_text").notNull(),
+    evidenceQuotes: text("evidence_quotes").array().default([]).notNull(),
+    hypothesis: text("hypothesis").notNull(),
+    expectedOutcome: text("expected_outcome").notNull(),
+    falsificationCriteria: text("falsification_criteria").array().default([]).notNull(),
+    requiredArtifacts: jsonb("required_artifacts").default([]).notNull(),
+    datasets: jsonb("datasets").default([]).notNull(),
+    methods: jsonb("methods").default([]).notNull(),
+    metrics: jsonb("metrics").default([]).notNull(),
+    baselines: jsonb("baselines").default([]).notNull(),
+    parameters: jsonb("parameters").default([]).notNull(),
+    computeBudget: jsonb("compute_budget").notNull(),
+    verifierCandidates: text("verifier_candidates").array().default([]).notNull(),
+    planner: jsonb("planner").notNull(),
+    state: replicationStateEnum("state").notNull(),
+    blockers: jsonb("blockers").default([]).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    paperIdx: index("replication_units_paper_idx").on(t.paperId),
+    stateIdx: index("replication_units_state_idx").on(t.state),
+    domainIdx: index("replication_units_domain_idx").on(t.domain),
+  }),
+);

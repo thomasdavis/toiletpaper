@@ -215,6 +215,8 @@ function unitTypeForPredicate(predicate: string): ReplicationUnitType {
   if (predicate === "ml:outperforms") return "baseline_contrast";
   if (predicate === "ml:evaluationSetting") return "dataset_integrity";
   if (predicate === "ml:usesTechnique" || predicate === "ml:baseModel") return "artifact_availability";
+  if (predicate === "ml:parameterCount") return "equation_check";
+  if (predicate === "ml:finding") return "statistical_significance";
   return "human_review";
 }
 
@@ -225,12 +227,20 @@ function hypothesisForStatement(statement: DontoStatementInput, claimText: strin
   if (statement.predicate === "ml:score") {
     return `${statement.subject} achieves the reported metric value ${claimText}.`;
   }
+  if (statement.predicate === "ml:parameterCount") {
+    return `${statement.subject} has the reported parameter count of ${claimText}.`;
+  }
+  if (statement.predicate === "ml:finding") {
+    return `The finding "${claimText}" for ${statement.subject} holds under independent statistical evaluation.`;
+  }
   return `${statement.subject} claim can be independently checked: ${claimText}.`;
 }
 
 function expectedOutcomeForStatement(statement: DontoStatementInput, claimText: string): string {
   if (statement.predicate === "ml:score") return `Recomputed metric matches ${claimText} within declared tolerance.`;
   if (statement.predicate === "ml:outperforms") return `Proposed method beats baseline in the same direction as reported.`;
+  if (statement.predicate === "ml:parameterCount") return `Model architecture yields ${claimText} parameters when instantiated with reported config.`;
+  if (statement.predicate === "ml:finding") return `Statistical significance and effect direction match the reported finding.`;
   return "Verifier either reproduces the claim, identifies a blocker, or emits a non-signal verdict.";
 }
 
@@ -245,6 +255,18 @@ function falsificationCriteriaForUnit(unitType: ReplicationUnitType): string[] {
     return [
       "Baseline matches or exceeds the proposed method under the same compute and tuning budget.",
       "Reported improvement disappears across the required random seeds.",
+    ];
+  }
+  if (unitType === "equation_check") {
+    return [
+      "Computed value differs from reported value beyond rounding.",
+      "Model config does not produce the stated architecture.",
+    ];
+  }
+  if (unitType === "statistical_significance") {
+    return [
+      "Reported p-value or confidence interval cannot be reproduced from provided data.",
+      "Effect size is not significant under corrected multiple-comparison testing.",
     ];
   }
   return ["Required artifacts or assumptions are unavailable after reasonable search."];
@@ -306,6 +328,12 @@ function computeBudgetForUnit(unitType: ReplicationUnitType): ComputeBudget {
   if (unitType === "artifact_availability" || unitType === "dataset_integrity") {
     return { tier: "tiny", maxCpuHours: 1 };
   }
+  if (unitType === "equation_check") {
+    return { tier: "algebraic", maxCpuHours: 0.1 };
+  }
+  if (unitType === "statistical_significance") {
+    return { tier: "tiny", maxCpuHours: 2, maxMemoryGb: 8 };
+  }
   return { tier: "human" };
 }
 
@@ -314,6 +342,8 @@ function verifierCandidatesForUnit(unitType: ReplicationUnitType): string[] {
   if (unitType === "baseline_contrast") return ["metric-table-parser", "small-proxy-repro", "stat-sanity"];
   if (unitType === "artifact_availability") return ["artifact-availability"];
   if (unitType === "dataset_integrity") return ["artifact-availability", "dataset-integrity"];
+  if (unitType === "equation_check") return ["theory-shape-check", "config-replay"];
+  if (unitType === "statistical_significance") return ["stat-sanity", "metric-table-parser"];
   return ["human-review"];
 }
 

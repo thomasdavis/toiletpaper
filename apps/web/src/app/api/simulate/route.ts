@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { papers, claims, simulations, routerDecisions } from "@toiletpaper/db";
+import { papers, claims, simulations, routerDecisions, replicationUnits } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { getHistory } from "@/lib/donto";
 import { DONTOSRV_URL } from "@toiletpaper/donto-client";
@@ -9,6 +9,10 @@ import {
   emitObligation,
 } from "@toiletpaper/donto-client/evidence";
 import { ensurePaperDomain, isPhysicsDomain } from "@/lib/router/classify";
+import {
+  buildReplicationUnitsFromDonto,
+  type DontoStatementInput,
+} from "@toiletpaper/simulator";
 
 /** Assert simulation verdict quads into donto for a claim. */
 async function ingestVerdictToDonto(
@@ -184,6 +188,62 @@ export async function POST(req: Request) {
         reason: `paper domain '${domain.domain}' not in physics-adjacent set`,
       })),
     );
+    // PRD-009 — build replication plans for non-physics papers
+    const statements: DontoStatementInput[] = [];
+    for (const claim of paperClaims) {
+      if (!claim.dontoSubjectIri) continue;
+      try {
+        const h = await getHistory(claim.dontoSubjectIri);
+        for (const r of h?.rows ?? []) {
+          statements.push({
+            statementId: r.statement_id,
+            subject: r.subject,
+            predicate: r.predicate,
+            object_iri: r.object_iri,
+            object_lit: r.object_lit
+              ? { v: r.object_lit.v as string | number | boolean, dt: r.object_lit.dt }
+              : null,
+            context: r.context,
+          });
+        }
+      } catch (_e) { /* dontosrv may be down */ }
+    }
+
+    const units = buildReplicationUnitsFromDonto({
+      paperId: paper.id,
+      claimIriPrefix: "tp:claim",
+      statements,
+    });
+
+    if (units.length > 0) {
+      await db.insert(replicationUnits).values(
+        units.map((u) => ({
+          id: u.id,
+          paperId: u.paperId,
+          claimIri: u.claimIri,
+          sourceStatementIds: u.sourceStatementIds,
+          domain: u.domain,
+          unitType: u.unitType,
+          claimText: u.claimText,
+          evidenceQuotes: u.evidenceQuotes,
+          hypothesis: u.hypothesis,
+          expectedOutcome: u.expectedOutcome,
+          falsificationCriteria: u.falsificationCriteria,
+          requiredArtifacts: u.requiredArtifacts,
+          datasets: u.datasets,
+          methods: u.methods,
+          metrics: u.metrics,
+          baselines: u.baselines,
+          parameters: u.parameters,
+          computeBudget: u.computeBudget,
+          verifierCandidates: u.verifierCandidates,
+          planner: u.planner,
+          state: u.state,
+          blockers: u.blockers,
+        })),
+      ).onConflictDoNothing();
+    }
+
     await db
       .update(papers)
       .set({ status: "done", updatedAt: new Date() })
@@ -198,8 +258,10 @@ export async function POST(req: Request) {
         fragile: 0,
         underdetermined: 0,
         mhdSimulations: 0,
+        replicationUnitsPlanned: units.length,
       },
       verdicts: [],
+      replicationUnits: units,
       domain,
     });
   }
