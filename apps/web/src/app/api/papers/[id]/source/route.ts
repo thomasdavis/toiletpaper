@@ -38,7 +38,7 @@ export async function GET(
 
   let buf: Buffer;
   try {
-    buf = await getObject(gs.bucket, gs.object);
+    buf = await getObject(gs.bucket, gs.key);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "fetch failed" },
@@ -46,7 +46,7 @@ export async function GET(
     );
   }
 
-  const ext = (gs.object.split(".").pop() ?? "pdf").toLowerCase();
+  const ext = (gs.key.split(".").pop() ?? "pdf").toLowerCase();
   const contentType =
     ext === "pdf" ? "application/pdf"
       : ext === "md" || ext === "markdown" ? "text/markdown; charset=utf-8"
