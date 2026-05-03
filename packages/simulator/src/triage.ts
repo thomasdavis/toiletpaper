@@ -43,7 +43,7 @@ export async function triageClaims(
   const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
 
   const testable = claims.filter(
-    (c) => c.category === "quantitative" || c.category === "comparative" || c.category === "theoretical",
+    (c) => c.category !== "methodological" && c.confidence >= 0.3,
   );
   if (testable.length === 0) return [];
 
