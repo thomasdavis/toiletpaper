@@ -4,8 +4,8 @@ export async function putObject(
   body: Buffer,
   contentType: string,
 ): Promise<void> {
-  const { Storage } = await import("@google-cloud/storage");
-  const storage = new Storage();
+  const mod = await import(/* webpackIgnore: true */ "@google-cloud/storage");
+  const storage = new mod.Storage();
   const file = storage.bucket(bucket).file(key);
   await file.save(body, { contentType });
 }
