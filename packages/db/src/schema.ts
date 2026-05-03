@@ -341,3 +341,26 @@ export const replicationUnits = pgTable(
     domainIdx: index("replication_units_domain_idx").on(t.domain),
   }),
 );
+
+// ────────────────────────────────────────────────────────────────────────────
+// simulation_logs: real-time Claude Code session streaming
+// ────────────────────────────────────────────────────────────────────────────
+
+export const simulationLogs = pgTable(
+  "simulation_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    paperId: uuid("paper_id")
+      .references(() => papers.id, { onDelete: "cascade" })
+      .notNull(),
+    seq: integer("seq").notNull(),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    paperSeqIdx: index("simulation_logs_paper_seq_idx").on(t.paperId, t.seq),
+  }),
+);

@@ -22,6 +22,7 @@ import {
 } from "@toiletpaper/ui";
 import { DebugPanel } from "@/components/debug-panel";
 import { PaperTabs } from "@/components/paper-tabs";
+import { SimulationStream } from "@/components/simulation-stream";
 
 export async function generateMetadata({
   params,
@@ -185,6 +186,11 @@ export default async function PaperDetailPage({
         </Stack>
 
         <DontoDetails paperId={id} />
+
+        {/* Live simulation stream */}
+        {(paper.status === "simulating" || paper.status === "extracted") && (
+          <SimulationStream paperId={id} />
+        )}
 
         {/* Debug panels */}
         <DebugPanel label="Paper" data={paper} />

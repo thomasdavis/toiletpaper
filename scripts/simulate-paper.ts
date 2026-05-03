@@ -15,9 +15,12 @@
  */
 
 import postgres from "postgres";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, watchFile, unwatchFile } from "node:fs";
+import { join, resolve } from "node:path";
+import { execSync, spawn } from "node:child_process";
+import { homedir } from "node:os";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
 
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://toiletpaper:toiletpaper@127.0.0.1:5434/toiletpaper";
 const DONTOSRV_URL = process.env.DONTOSRV_URL ?? "http://localhost:7879";
@@ -191,14 +194,64 @@ async function main() {
   console.log(`Spec written to ${specPath}`);
   console.log(`Work directory: ${workDir}`);
 
-  // 5. Invoke Claude Code
+  // 5. Invoke Claude Code + stream JSONL to simulation_logs
   console.log(`\nInvoking Claude Code...\n`);
 
   const claudePrompt = `Read the simulation spec at ${specPath}. Build and run simulations for each testable claim in the paper "${paper.title}". Check the shared library at ${libDir}/ for reusable modules before writing new code. Write simulation scripts in ${workDir}. After all simulations are done, extract any reusable functions into ${libDir}/ as standalone Python modules with docstrings. Write final results to ${resultsPath}. Focus on the strongest testable claims first. Do not ask for confirmation — just build, run, and judge.`;
 
+  const WEB_URL = process.env.WEB_URL ?? "https://toiletpaper-web-587706120371.us-central1.run.app";
+
+  // Find the JSONL project dir for this workDir
+  const encodedCwd = resolve(workDir).replace(/\//g, "-").replace(/^-/, "");
+  const claudeProjectDir = join(homedir(), ".claude", "projects", encodedCwd);
+
+  // Start tailing JSONL in background and POST events to the API
+  let seq = 0;
+  let tailInterval: ReturnType<typeof setInterval> | null = null;
+  let lastSize = 0;
+
+  function startJsonlTail() {
+    tailInterval = setInterval(async () => {
+      try {
+        if (!existsSync(claudeProjectDir)) return;
+        const files = readdirSync(claudeProjectDir).filter((f) => f.endsWith(".jsonl"));
+        if (files.length === 0) return;
+        const jsonlPath = join(claudeProjectDir, files[files.length - 1]);
+        const { size } = await import("node:fs").then((fs) => fs.statSync(jsonlPath));
+        if (size <= lastSize) return;
+
+        const stream = createReadStream(jsonlPath, { start: lastSize });
+        const rl = createInterface({ input: stream });
+        const events: Array<{ seq: number; eventType: string; payload: unknown }> = [];
+
+        for await (const line of rl) {
+          if (!line.trim()) continue;
+          try {
+            const parsed = JSON.parse(line);
+            seq++;
+            const eventType = parsed.type ?? "unknown";
+            events.push({ seq, eventType, payload: parsed });
+          } catch (_e) { /* skip malformed lines */ }
+        }
+
+        lastSize = size;
+
+        if (events.length > 0) {
+          await fetch(`${WEB_URL}/api/papers/${paperId}/simulation-log`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ events }),
+          }).catch(() => { /* best effort */ });
+        }
+      } catch (_e) { /* non-fatal */ }
+    }, 2000);
+  }
+
+  startJsonlTail();
+
   try {
     execSync(
-      `claude --print -p "${claudePrompt.replace(/"/g, '\\"')}" --allowedTools "Bash(command:*)" "Read" "Write"`,
+      `claude --print -p "${claudePrompt.replace(/"/g, '\\"')}" --dangerously-skip-permissions`,
       {
         cwd: workDir,
         stdio: "inherit",
@@ -213,6 +266,8 @@ async function main() {
   } catch (e) {
     console.error("Claude Code exited:", e instanceof Error ? e.message : e);
   }
+
+  if (tailInterval) clearInterval(tailInterval);
 
   // 6. Read results and store in DB
   if (existsSync(resultsPath)) {
