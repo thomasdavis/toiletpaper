@@ -40,6 +40,11 @@ spec:
             secretKeyRef:
               key: latest
               name: tp-openrouter-api-key
+        - name: CLAUDE_CREDENTIALS
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: tp-claude-credentials
         - name: UPLOADS_BUCKET
           value: apex-494316-source-staging
         - name: UPLOADS_DIR

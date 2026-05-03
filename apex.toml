@@ -16,12 +16,15 @@ description = "Postgres connection string for toiletpaper"
 [secrets.tp-openrouter-api-key]
 description = "OpenRouter API key for Grok 4.1 mini (triage, extraction, classification, judging)"
 
+[secrets.tp-claude-credentials]
+description = "Claude OAuth credentials JSON for simulation codegen"
+
 [services.web]
 path = "."
 port = 3001
 healthcheck = "/"
 dockerfile = "Dockerfile"
-env = { NODE_ENV = { value = "production" }, DONTOSRV_URL = { value = "https://dontosrv-587706120371.us-central1.run.app" }, DATABASE_URL = { from_secret = "tp-database-url" }, OPENROUTER_API_KEY = { from_secret = "tp-openrouter-api-key" }, UPLOADS_BUCKET = { value = "apex-494316-source-staging" }, UPLOADS_DIR = { value = "/tmp/uploads" }, SIMULATOR_WORKDIR = { value = "/tmp/tp-simulations" } }
+env = { NODE_ENV = { value = "production" }, DONTOSRV_URL = { value = "https://dontosrv-587706120371.us-central1.run.app" }, DATABASE_URL = { from_secret = "tp-database-url" }, OPENROUTER_API_KEY = { from_secret = "tp-openrouter-api-key" }, CLAUDE_CREDENTIALS = { from_secret = "tp-claude-credentials" }, UPLOADS_BUCKET = { value = "apex-494316-source-staging" }, UPLOADS_DIR = { value = "/tmp/uploads" }, SIMULATOR_WORKDIR = { value = "/tmp/tp-simulations" } }
 
 [routes.main]
 hostname = "dontopedia.apexpots.com"

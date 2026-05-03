@@ -45,5 +45,6 @@ COPY --from=build /app/toiletpaper/apps/web/.next/standalone ./
 COPY --from=build /app/toiletpaper/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /app/toiletpaper/apps/web/public ./apps/web/public 2>/dev/null || true
 USER app
+RUN mkdir -p /home/app/.claude
 EXPOSE 3001
-CMD ["node", "apps/web/server.js"]
+CMD sh -c 'if [ -n "$CLAUDE_CREDENTIALS" ]; then echo "$CLAUDE_CREDENTIALS" > /home/app/.claude/.credentials.json; fi && node apps/web/server.js'
