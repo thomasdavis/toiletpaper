@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { TestableClaim } from "./schema";
 
 const TRIAGE_PROMPT = `You are a physics claim triage agent. Convert scientific claims into testable specifications.
@@ -23,7 +23,7 @@ For each claim, return a JSON object with:
 - dimensionalFormula: dimensional analysis string
 
 Prefer "algebraic" or "toy" feasibility. Only use "full" if genuinely needs 3D MHD.
-Return ONLY valid JSON: {"claims": [...]}`;
+Return: {"claims": [...]}`;
 
 interface RawClaim {
   text: string;
@@ -40,7 +40,7 @@ export async function triageClaims(
   paperAbstract: string,
   apiKey: string,
 ): Promise<TestableClaim[]> {
-  const client = new Anthropic({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
 
   const testable = claims.filter(
     (c) => c.category === "quantitative" || c.category === "comparative" || c.category === "theoretical",
@@ -57,23 +57,20 @@ export async function triageClaims(
       .join("\n");
 
     try {
-      const response = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4096,
-        system: TRIAGE_PROMPT,
+      const response = await client.chat.completions.create({
+        model: "x-ai/grok-4.1-mini",
         messages: [
+          { role: "system", content: TRIAGE_PROMPT },
           { role: "user", content: `Paper: ${paperAbstract.slice(0, 500)}\n\nClaims:\n${claimsText}` },
         ],
+        response_format: { type: "json_object" },
         temperature: 0.1,
       });
 
-      const content = response.content[0]?.type === "text" ? response.content[0].text : "";
+      const content = response.choices[0]?.message?.content;
       if (!content) continue;
 
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) continue;
-
-      const parsed = JSON.parse(jsonMatch[0]) as { claims: TestableClaim[] };
+      const parsed = JSON.parse(content) as { claims: TestableClaim[] };
       if (parsed.claims) {
         results.push(...parsed.claims);
       }

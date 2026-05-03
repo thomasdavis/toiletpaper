@@ -141,9 +141,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "no claims extracted" }, { status: 400 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
+    return NextResponse.json({ error: "OPENROUTER_API_KEY not set" }, { status: 500 });
   }
 
   await db.update(papers).set({ status: "simulating", updatedAt: new Date() }).where(eq(papers.id, paper.id));

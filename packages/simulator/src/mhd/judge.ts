@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 export interface MhdVerdict {
   claim: string;
@@ -158,23 +158,26 @@ export async function addLlmAnalysis(
   rawData: string,
   apiKey: string,
 ): Promise<MhdVerdict> {
-  const client = new Anthropic({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 400,
-    system: `You are a computational physicist reviewing MHD simulation results. Given the deterministic analysis and raw data, provide a scientific interpretation in 3-5 sentences. Be specific about what the simulation shows, what it doesn't show, and what additional tests would strengthen or weaken the conclusion. Mention specific numbers from the data.`,
+  const response = await client.chat.completions.create({
+    model: "x-ai/grok-4.1-mini",
     messages: [
+      {
+        role: "system",
+        content: `You are a computational physicist reviewing MHD simulation results. Given the deterministic analysis and raw data, provide a scientific interpretation in 3-5 sentences. Be specific about what the simulation shows, what it doesn't show, and what additional tests would strengthen or weaken the conclusion. Mention specific numbers from the data.`,
+      },
       {
         role: "user",
         content: `Claim: ${verdict.claim}\n\nDeterministic verdict: ${verdict.verdict} (confidence ${verdict.confidence})\nMetric: ${verdict.deterministic.metric} = ${verdict.deterministic.measured.toFixed(4)} (expected ${verdict.deterministic.expected}, tolerance ±${verdict.deterministic.tolerance})\nConservation: energy drift ${verdict.conservation.energyDrift.toExponential(2)}, div B max ${verdict.conservation.divBMax.toExponential(2)}\n\nRaw data:\n${rawData}`,
       },
     ],
     temperature: 0.3,
+    max_tokens: 300,
   });
 
   return {
     ...verdict,
-    llmAnalysis: response.content[0]?.type === "text" ? response.content[0].text : "No analysis available",
+    llmAnalysis: response.choices[0]?.message?.content ?? "No analysis available",
   };
 }

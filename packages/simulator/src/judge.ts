@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { TestableClaim, SimulationResult, ClaimVerdict, Verdict } from "./schema";
 
 const JUDGE_PROMPT = `You are a scientific judge evaluating whether a physics claim has been reproduced by simulation.
@@ -24,14 +24,14 @@ Also assess:
 - baselineReproduced: does the baseline (standard model) work as expected?
 - proposedMatchesClaim: does the proposed model match what the paper claims?
 
-Return ONLY valid JSON: { "verdict": "...", "reason": "...", "confidence": 0.9, "baselineReproduced": true, "proposedMatchesClaim": true }`;
+Return JSON: { "verdict": "...", "reason": "...", "confidence": 0.9, "baselineReproduced": true, "proposedMatchesClaim": true }`;
 
 export async function judgeResult(
   claim: TestableClaim,
   result: SimulationResult,
   apiKey: string,
 ): Promise<ClaimVerdict> {
-  const client = new Anthropic({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
 
   const summary = {
     claim: claim.statement,
@@ -52,17 +52,17 @@ export async function judgeResult(
     rawReason: result.verdictReason,
   };
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: JUDGE_PROMPT,
+  const response = await client.chat.completions.create({
+    model: "x-ai/grok-4.1-mini",
     messages: [
+      { role: "system", content: JUDGE_PROMPT },
       { role: "user", content: JSON.stringify(summary, null, 2) },
     ],
+    response_format: { type: "json_object" },
     temperature: 0.1,
   });
 
-  const content = response.content[0]?.type === "text" ? response.content[0].text : "";
+  const content = response.choices[0]?.message?.content;
   let judged = {
     verdict: result.verdict as Verdict,
     reason: result.verdictReason,
@@ -73,11 +73,8 @@ export async function judgeResult(
 
   if (content) {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        judged = { ...judged, ...parsed };
-      }
+      const parsed = JSON.parse(content);
+      judged = { ...judged, ...parsed };
     } catch (_e) { /* use defaults */ }
   }
 

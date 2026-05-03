@@ -30,8 +30,8 @@ export async function POST(req: Request) {
     .where(eq(papers.id, paper.id));
 
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
 
     let pdfBuffer: Buffer | null = null;
     if (paper.pdfUrl) {

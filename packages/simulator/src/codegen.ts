@@ -1,5 +1,14 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import Anthropic from "@anthropic-ai/sdk";
 import type { TestableClaim, SimulationPlan, ParameterSweep } from "./schema";
+
+function getClaudeOAuthToken(): string {
+  const credPath = join(homedir(), ".claude", ".credentials.json");
+  const creds = JSON.parse(readFileSync(credPath, "utf-8"));
+  return creds.claudeAiOauth.accessToken;
+}
 
 const CODEGEN_PROMPT = `You are a computational physics agent. Given a testable scientific claim, generate Python simulation code to test it.
 
@@ -51,9 +60,9 @@ For baseline_contrast claims (e.g., P ∝ B^{3/2} vs P ∝ B^2):
 
 export async function generateSimulationCode(
   claim: TestableClaim,
-  apiKey: string,
+  _apiKey: string,
 ): Promise<{ baselineCode: string; proposedCode: string; combinedCode: string }> {
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey: getClaudeOAuthToken() });
 
   const claimSpec = JSON.stringify(claim, null, 2);
 
