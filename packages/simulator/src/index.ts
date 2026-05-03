@@ -16,6 +16,24 @@ export { runTier1, checkDimensions, checkScalingLaw } from "./algebraic";
 export { generateSimulationCode, buildSimulationPlan } from "./codegen";
 export { runSimulation } from "./runner";
 export { judgeResult, judgeAlgebraic } from "./judge";
+export {
+  buildReplicationUnitsFromDonto,
+  type BaselineRequirement,
+  type ComputeBudget,
+  type DatasetRequirement,
+  type DontoReplicationBundleInput,
+  type DontoStatementInput,
+  type MethodRequirement,
+  type MetricRequirement,
+  type ParameterRequirement,
+  type PlannerProvenance,
+  type ReplicationArtifactRequirement,
+  type ReplicationBlocker,
+  type ReplicationDomain,
+  type ReplicationState,
+  type ReplicationUnit,
+  type ReplicationUnitType,
+} from "./replication";
 
 import type { TestableClaim, ClaimVerdict } from "./schema";
 import { triageClaims } from "./triage";
