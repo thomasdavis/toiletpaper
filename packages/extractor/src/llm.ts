@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export interface ExtractedClaim {
   text: string;
@@ -55,7 +55,7 @@ Be thorough with relations. Look for:
 - Claims that scope or qualify other claims
 - Evidence chains where one result leads to another
 
-Return valid JSON with this structure:
+Return ONLY valid JSON with this structure:
 {
   "title": "...",
   "authors": ["..."],
@@ -70,27 +70,30 @@ export async function extractClaimsFromText(
   text: string,
   apiKey: string,
 ): Promise<ExtractionResult> {
-  const openai = new OpenAI({ apiKey });
+  const client = new Anthropic({ apiKey });
 
   const truncated = text.length > 100_000 ? text.slice(0, 100_000) : text;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.4",
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    system: EXTRACTION_PROMPT,
     messages: [
-      { role: "system", content: EXTRACTION_PROMPT },
       {
         role: "user",
         content: `Extract all testable claims and their logical relationships from this paper:\n\n${truncated}`,
       },
     ],
-    response_format: { type: "json_object" },
     temperature: 0.1,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("No response from OpenAI");
+  const content = response.content[0]?.type === "text" ? response.content[0].text : "";
+  if (!content) throw new Error("No response from Claude");
 
-  const parsed = JSON.parse(content) as ExtractionResult;
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("No JSON found in Claude response");
+
+  const parsed = JSON.parse(jsonMatch[0]) as ExtractionResult;
   if (!parsed.relations) parsed.relations = [];
   if (!parsed.claims) parsed.claims = [];
   if (!parsed.authors) parsed.authors = [];

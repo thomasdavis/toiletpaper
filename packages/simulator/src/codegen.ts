@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import type { TestableClaim, SimulationPlan, ParameterSweep } from "./schema";
 
 const CODEGEN_PROMPT = `You are a computational physics agent. Given a testable scientific claim, generate Python simulation code to test it.
@@ -53,14 +53,15 @@ export async function generateSimulationCode(
   claim: TestableClaim,
   apiKey: string,
 ): Promise<{ baselineCode: string; proposedCode: string; combinedCode: string }> {
-  const openai = new OpenAI({ apiKey });
+  const client = new Anthropic({ apiKey });
 
   const claimSpec = JSON.stringify(claim, null, 2);
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.4",
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    system: CODEGEN_PROMPT,
     messages: [
-      { role: "system", content: CODEGEN_PROMPT },
       {
         role: "user",
         content: `Generate a self-contained Python simulation script to test this claim:
@@ -80,7 +81,7 @@ Return ONLY the Python code, no markdown fences.`,
     temperature: 0.1,
   });
 
-  const code = response.choices[0]?.message?.content ?? "";
+  const code = response.content[0]?.type === "text" ? response.content[0].text : "";
 
   const cleaned = code
     .replace(/^```python\n?/m, "")

@@ -5,7 +5,7 @@
  * repeat calls (re-simulate, re-extract) don't re-bill the model.
  */
 
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { papers } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
@@ -63,13 +63,13 @@ two top-level domains (e.g. mathematical physics, computational
 biology). Use "unknown" only when the paper is too short or
 non-academic to classify.
 
-Return strict JSON: { "domain": <domain>, "confidence": 0..1, "reason": "<one sentence>" }.`;
+Return ONLY valid JSON: { "domain": <domain>, "confidence": 0..1, "reason": "<one sentence>" }.`;
 
 export async function classifyPaperDomain(
   input: ClassifyInput,
   apiKey: string,
 ): Promise<ClassifyResult> {
-  const client = new OpenAI({ apiKey });
+  const client = new Anthropic({ apiKey });
   const sample = input.sampleClaims.slice(0, 12).map((s, i) => `  [${i + 1}] ${s}`).join("\n");
   const user = [
     `TITLE: ${input.title}`,
@@ -77,19 +77,17 @@ export async function classifyPaperDomain(
     `\nSAMPLE CLAIMS:\n${sample}`,
   ].filter(Boolean).join("");
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
+  const completion = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 256,
+    system: SYSTEM_PROMPT,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: user },
     ],
     temperature: 0,
-    seed: 42,
-    response_format: { type: "json_object" },
-    max_tokens: 200,
   });
 
-  const raw = completion.choices[0]?.message?.content ?? "{}";
+  const raw = completion.content[0]?.type === "text" ? completion.content[0].text : "{}";
   let parsed: { domain?: string; confidence?: number; reason?: string };
   try {
     parsed = JSON.parse(raw);

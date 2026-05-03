@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     await db
       .update(papers)

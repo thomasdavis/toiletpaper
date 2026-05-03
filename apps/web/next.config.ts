@@ -10,7 +10,7 @@ const config: NextConfig = {
     "@toiletpaper/ui",
     "@donto/client",
   ],
-  serverExternalPackages: ["postgres", "pdf-parse"],
+  serverExternalPackages: ["postgres", "pdf-parse", "@anthropic-ai/sdk"],
   env: {
     NEXT_PUBLIC_DONTOSRV_URL:
       process.env.DONTOSRV_URL ?? "http://localhost:7879",

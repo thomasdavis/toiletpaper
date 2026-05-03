@@ -31,7 +31,7 @@ export async function startExtraction(opts: {
       ${opts.temperature ?? 0.1},
       ${null}::bigint,
       ${"full-document"},
-      ${JSON.stringify({ provider: opts.toolchain ?? "openai" })}::jsonb,
+      ${JSON.stringify({ provider: opts.toolchain ?? "anthropic" })}::jsonb,
       ${JSON.stringify(opts.metadata ?? {})}::jsonb
     ) AS run_id
   `;

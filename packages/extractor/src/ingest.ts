@@ -123,8 +123,8 @@ export async function ingestPaperIntoDonto(
 
   // ── 4. Agent ──────────────────────────────────────────────────────────
   const agentRes = await registerAgent(DONTOSRV_URL, {
-    iri: "agent:openai-gpt54-extractor", agent_type: "llm",
-    label: "OpenAI GPT-5.4 Extractor", model_id: "gpt-5.4",
+    iri: "agent:anthropic-claude-sonnet-extractor", agent_type: "llm",
+    label: "Anthropic Claude Sonnet 4.6 Extractor", model_id: "claude-sonnet-4-6",
   });
 
   // ── 5. Bind agent ─────────────────────────────────────────────────────
@@ -134,8 +134,8 @@ export async function ingestPaperIntoDonto(
 
   // ── 6. Start extraction run ───────────────────────────────────────────
   const runId = await startExtraction({
-    model: "gpt-5.4", version: "2025-04", revisionId: revRes.revision_id,
-    context: paperCtx, temperature: 0.1, toolchain: "openai",
+    model: "claude-sonnet-4-6", version: "2026-05", revisionId: revRes.revision_id,
+    context: paperCtx, temperature: 0.1, toolchain: "anthropic",
     metadata: { paperId, contentHash },
   });
 
@@ -349,7 +349,7 @@ export async function ingestPaperIntoDonto(
     if (hasEvidence && (hasValue || highConfidence)) {
       try {
         await attachCertificate(primaryId, "direct_assertion", {
-          source: "gpt-5.4-extraction",
+          source: "claude-sonnet-4-6-extraction",
           evidence: claim.evidence,
           confidence: claim.confidence,
           category: claim.category,

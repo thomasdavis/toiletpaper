@@ -40,10 +40,10 @@ export async function POST(
     );
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY not set" },
+      { error: "ANTHROPIC_API_KEY not set" },
       { status: 500 },
     );
   }

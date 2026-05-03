@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "openai": "^4.86.0"
+    "@anthropic-ai/sdk": "^0.39.0"
   },
   "devDependencies": {
     "@toiletpaper/typescript-config": "workspace:*",
