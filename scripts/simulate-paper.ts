@@ -313,6 +313,7 @@ async function main() {
 
   startJsonlTail();
 
+  let claudeTimedOut = false;
   try {
     execSync(
       `claude --print -p "${claudePrompt.replace(/"/g, '\\"')}" --dangerously-skip-permissions`,
@@ -330,6 +331,7 @@ async function main() {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Claude Code exited:", msg);
+    claudeTimedOut = msg.includes("ETIMEDOUT") || msg.includes("timed out");
     // On timeout, try to collect partial results
     if (msg.includes("ETIMEDOUT") || msg.includes("timed out")) {
       console.log("Attempting to collect partial results...");
@@ -383,7 +385,7 @@ async function main() {
   //    Claude Code sends its own AI-written report during normal runs (see spec.md).
   //    This fallback fires only when the process timed out.
   const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500500494471397467/v3uYy70jnidcnrBWqviVSfAQKhtoNnHZDlpm3X3unAZOFEEaB-ppFLqN7HeOgTODPIbH";
-  const timedOut = !existsSync(resultsPath) || (e instanceof Error && e.message.includes("ETIMEDOUT"));
+  const timedOut = claudeTimedOut;
   if (existsSync(resultsPath) && timedOut) {
     console.log("Claude Code timed out — sending fallback Discord report...");
     try {
