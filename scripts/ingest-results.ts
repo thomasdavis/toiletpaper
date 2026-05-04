@@ -261,6 +261,7 @@ async function main() {
   }
 
   const results = JSON.parse(readFileSync(resultsPath, "utf-8")) as Array<{
+    claim_id?: string;
     claim_index: number;
     claim_text: string;
     test_type: string;
@@ -279,12 +280,30 @@ async function main() {
 
   let stored = 0;
   let skipped = 0;
+  let matchedById = 0;
+  let matchedByText = 0;
   const matchedClaimIds = new Set<string>();
   for (const r of results) {
-    // Match by text similarity — claim_index values from Claude Code are unreliable
-    const unmatched = claims.filter(c => !matchedClaimIds.has(c.id as string));
-    const claim = findBestMatch(unmatched, r.claim_text)
-      ?? findBestMatch(claims, r.claim_text); // fallback: allow re-match if all else fails
+    let claim: Record<string, unknown> | undefined;
+
+    // Strategy 0: Exact match by claim_id UUID (preferred — deterministic)
+    if (r.claim_id) {
+      claim = claims.find(c => (c.id as string) === r.claim_id);
+      if (claim) {
+        matchedById++;
+      } else {
+        console.warn(`  ⚠ claim_id="${r.claim_id}" not found in DB — falling back to text matching`);
+      }
+    }
+
+    // Fallback: Match by text similarity (for old results without claim_id)
+    if (!claim) {
+      const unmatched = claims.filter(c => !matchedClaimIds.has(c.id as string));
+      claim = findBestMatch(unmatched, r.claim_text)
+        ?? findBestMatch(claims, r.claim_text); // fallback: allow re-match if all else fails
+      if (claim) matchedByText++;
+    }
+
     if (!claim) {
       console.warn(`  ⚠ No matching claim found for index=${r.claim_index}, text="${r.claim_text?.slice(0, 80) ?? "(none)"}". Skipping.`);
       skipped++;
@@ -339,6 +358,7 @@ async function main() {
 
   console.log();
   console.log(`Stored ${stored} results for "${paper.title}"${skipped > 0 ? ` (${skipped} skipped — no matching claim)` : ""}`);
+  console.log(`  Matched by ID: ${matchedById} | Matched by text: ${matchedByText}`);
   console.log(`  Reproduced: ${reproduced} | Contradicted: ${contradicted} | Fragile: ${fragile} | Total: ${results.length}`);
 }
 

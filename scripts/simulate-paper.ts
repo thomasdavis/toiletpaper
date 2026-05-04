@@ -156,7 +156,7 @@ async function main() {
   spec += `## Claims to Test\n\n`;
 
   for (const [i, claim] of enriched.entries()) {
-    spec += `### Claim ${i + 1} (${claim.category ?? "unknown"})\n\n`;
+    spec += `### Claim ${i + 1} [id: ${claim.id}] (${claim.category ?? "unknown"})\n\n`;
     spec += `**Text:** ${claim.text}\n\n`;
     if (claim.value) spec += `**Value:** ${claim.value} ${claim.unit ?? ""}\n`;
     if (claim.evidence) spec += `**Evidence:** ${claim.evidence}\n`;
@@ -216,6 +216,7 @@ async function main() {
   spec += `\`\`\`json\n`;
   spec += `[\n`;
   spec += `  {\n`;
+  spec += `    "claim_id": "7a3f2b01-...",\n`;
   spec += `    "claim_index": 0,\n`;
   spec += `    "claim_text": "...",\n`;
   spec += `    "test_type": "scaling_law",\n`;
@@ -230,6 +231,7 @@ async function main() {
   spec += `  }\n`;
   spec += `]\n`;
   spec += `\`\`\`\n\n`;
+  spec += `**IMPORTANT:** The \`claim_id\` field must be the exact UUID from the \`[id: ...]\` tag in the claim heading above. This is how results are matched back to the database.\n\n`;
   spec += `Work in ${workDir}. Write simulation scripts there. Focus on the most testable claims first.\n`;
   spec += `Do not skip claims just because they're hard — build whatever physics/ML infrastructure you need.\n\n`;
 
