@@ -137,7 +137,7 @@ export default async function PaperDetailPage({
 
   return (
     <div className="p-6 max-w-5xl">
-      {/* Header */}
+
       <header className="mb-6">
         <div className="flex items-start gap-3">
           <Heading level={3} className="flex-1 min-w-0">{paper.title}</Heading>
@@ -159,12 +159,11 @@ export default async function PaperDetailPage({
         )}
       </header>
 
-      {/* Live simulation stream */}
+
       {(paper.status === "simulating" || paper.status === "extracted") && (
         <div className="mb-6"><SimulationStream paperId={id} /></div>
       )}
 
-      {/* Tab content */}
       {activeTab === "overview" && (
         <Stack gap={6}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -197,7 +196,7 @@ export default async function PaperDetailPage({
         />
       )}
 
-      {activeTab === "blueprint" && blueprintData && (
+      {activeTab === "blueprint" && blueprintData != null && (
         <BlueprintPanel
           blueprint={blueprintData}
           modelUsed={blueprintModel}
