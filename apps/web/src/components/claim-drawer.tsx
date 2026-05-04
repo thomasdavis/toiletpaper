@@ -112,6 +112,57 @@ function extractResultFields(result: unknown): {
   };
 }
 
+// ── Review data helpers ──────────────────────────────────────────
+
+interface ReviewData {
+  review_status: "approved" | "flagged" | "rejected";
+  confidence_adjustment: number;
+  issues: string[];
+  verdict_change: null | "upgrade" | "downgrade";
+  notes: string;
+  reviewed_at?: string;
+}
+
+function extractReviewData(metadata: unknown): ReviewData | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const m = metadata as Record<string, unknown>;
+  if (!m.review || typeof m.review !== "object") return null;
+  const r = m.review as Record<string, unknown>;
+  if (
+    typeof r.review_status !== "string" ||
+    !["approved", "flagged", "rejected"].includes(r.review_status)
+  )
+    return null;
+  return {
+    review_status: r.review_status as ReviewData["review_status"],
+    confidence_adjustment: typeof r.confidence_adjustment === "number" ? r.confidence_adjustment : 0,
+    issues: Array.isArray(r.issues) ? (r.issues as string[]) : [],
+    verdict_change: r.verdict_change === "upgrade" || r.verdict_change === "downgrade" ? r.verdict_change : null,
+    notes: typeof r.notes === "string" ? r.notes : "",
+    reviewed_at: typeof r.reviewed_at === "string" ? r.reviewed_at : undefined,
+  };
+}
+
+const REVIEW_STATUS_META: Record<
+  ReviewData["review_status"],
+  { label: string; color: string }
+> = {
+  approved: { label: "Reviewed", color: "bg-[#1B4332] text-white" },
+  flagged: { label: "Flagged", color: "bg-[#B07D2B] text-white" },
+  rejected: { label: "Rejected", color: "bg-[#991B1B] text-white" },
+};
+
+function ReviewBadge({ status }: { status: ReviewData["review_status"] }) {
+  const meta = REVIEW_STATUS_META[status];
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide ${meta.color}`}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 const categoryVariant: Record<string, "default" | "success" | "warning" | "danger" | "muted"> = {
   quantitative: "default",
   comparative: "default",
@@ -246,6 +297,7 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
               {claim.simulations.map((sim) => {
                 const result = extractResultFields(sim.result);
                 const simVerdict = mapVerdict(sim.verdict);
+                const review = extractReviewData(sim.metadata);
                 return (
                   <div
                     key={sim.id}
@@ -256,6 +308,7 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
                         <Stack direction="horizontal" align="center" gap={2} wrap>
                           <VerdictBadge verdict={simVerdict} />
                           <EvidenceModeBadge mode={sim.evidenceMode} />
+                          {review && <ReviewBadge status={review.review_status} />}
                         </Stack>
                         <Text size="xs" color="muted">
                           {formatMethodName(sim.method)}
@@ -314,6 +367,41 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
                               </span>
                             ))}
                           </div>
+                        </div>
+                      )}
+                      {review && (review.issues.length > 0 || review.notes || review.confidence_adjustment !== 0) && (
+                        <div className="mt-1 rounded border border-[var(--color-rule-faint)] bg-[var(--color-paper-warm)] p-2">
+                          <Label size="xs" className="mb-1 block font-semibold">
+                            Adversarial Review
+                          </Label>
+                          {review.notes && (
+                            <Text size="xs" color="light" leading="relaxed" className="mb-1">
+                              {review.notes}
+                            </Text>
+                          )}
+                          {review.confidence_adjustment !== 0 && (
+                            <Text size="xs" color="muted" className="mb-1 font-mono">
+                              Confidence adjustment: {review.confidence_adjustment > 0 ? "+" : ""}
+                              {review.confidence_adjustment.toFixed(2)}
+                            </Text>
+                          )}
+                          {review.verdict_change && (
+                            <Text size="xs" color="muted" className="mb-1">
+                              Reviewer suggests: {review.verdict_change}
+                            </Text>
+                          )}
+                          {review.issues.length > 0 && (
+                            <div className="mt-1">
+                              <Label size="xs" className="mb-0.5 block">Issues</Label>
+                              <ul className="list-inside list-disc space-y-0.5">
+                                {review.issues.map((issue, idx) => (
+                                  <li key={idx} className="text-[10px] text-[var(--color-ink-muted)]">
+                                    {issue}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                     </Stack>

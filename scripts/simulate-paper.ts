@@ -520,6 +520,26 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
     } catch (e) {
       console.error("Ingest failed:", e instanceof Error ? e.message : e);
     }
+
+    // 6a. Run adversarial review (skip with --skip-review)
+    if (!process.argv.includes("--skip-review")) {
+      console.log("\nRunning adversarial review...\n");
+      try {
+        execSync(`npx tsx scripts/review-simulations.ts ${paperId}`, {
+          cwd: join(workDir, "../.."),
+          stdio: "inherit",
+          timeout: 15 * 60 * 1000,
+          env: { ...process.env, DATABASE_URL, DONTOSRV_URL },
+        });
+      } catch (e) {
+        console.warn(
+          "Review failed (non-fatal):",
+          e instanceof Error ? e.message : e,
+        );
+      }
+    } else {
+      console.log("\nSkipping adversarial review (--skip-review flag set).");
+    }
   } else {
     console.log("\nNo results file found — Claude Code may not have completed.");
   }
