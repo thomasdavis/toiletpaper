@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { db } from "@/lib/db";
 import { simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
+import { getObject } from "@/lib/storage";
+
+const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET || "";
 
 export async function GET(
   _req: Request,
@@ -30,15 +33,33 @@ export async function GET(
     );
   }
 
+  const ext = filename.split(".").pop() ?? "";
+  const language = ext === "py" ? "python" : ext === "ts" ? "typescript" : ext;
+
+  // 1. Try GCS first (works on Cloud Run and locally when bucket is set)
+  if (UPLOADS_BUCKET) {
+    const gcsKey = `simulations/${id}/${filename}`;
+    try {
+      const buf = await getObject(UPLOADS_BUCKET, gcsKey);
+      const code = buf.toString("utf-8");
+      return NextResponse.json({
+        filename,
+        code,
+        language,
+        lines: code.split("\n").length,
+      });
+    } catch (_e) {
+      // GCS miss — fall through to local filesystem
+    }
+  }
+
+  // 2. Fall back to local filesystem (dev mode)
   const workdir =
     process.env.SIMULATOR_WORKDIR ?? join("/tmp", "tp-simulations");
   const filePath = join(workdir, id, filename);
 
   try {
     const code = await readFile(filePath, "utf-8");
-    const ext = filename.split(".").pop() ?? "";
-    const language = ext === "py" ? "python" : ext === "ts" ? "typescript" : ext;
-
     return NextResponse.json({ filename, code, language, lines: code.split("\n").length });
   } catch (_e) {
     return NextResponse.json(

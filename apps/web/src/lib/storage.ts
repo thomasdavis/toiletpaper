@@ -22,3 +22,22 @@ export async function getObject(bucket: string, key: string): Promise<Buffer> {
   const [buf] = await storage.bucket(bucket).file(key).download();
   return buf;
 }
+
+/**
+ * List object names under a given prefix in a GCS bucket.
+ * Returns just the file names (last path segment), not full keys.
+ */
+export async function listObjects(
+  bucket: string,
+  prefix: string,
+): Promise<{ name: string; fullKey: string; size: number }[]> {
+  const storage = new Storage();
+  const [files] = await storage.bucket(bucket).getFiles({ prefix });
+  return files
+    .filter((f) => f.name !== prefix) // exclude the "directory" itself
+    .map((f) => ({
+      name: f.name.split("/").pop() ?? f.name,
+      fullKey: f.name,
+      size: Number(f.metadata.size ?? 0),
+    }));
+}

@@ -400,6 +400,30 @@ async function main() {
     console.log("\nNo results file found — Claude Code may not have completed.");
   }
 
+  // 6b. Upload simulation artifacts to GCS so they're accessible from Cloud Run
+  const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET;
+  if (UPLOADS_BUCKET && existsSync(resultsPath)) {
+    console.log("Uploading simulation artifacts to GCS...");
+    const artifacts = readdirSync(workDir).filter(f =>
+      f.endsWith('.py') || f.endsWith('.json') || f === 'spec.md' || f === 'paper.md'
+    );
+    let uploaded = 0;
+    for (const f of artifacts) {
+      const filePath = join(workDir, f);
+      const gcsKey = `simulations/${paperId}/${f}`;
+      try {
+        execSync(
+          `gcloud storage cp "${filePath}" "gs://${UPLOADS_BUCKET}/${gcsKey}" --quiet`,
+          { timeout: 30_000 },
+        );
+        uploaded++;
+      } catch (e) {
+        console.warn(`  Failed to upload ${f}: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    console.log(`  Uploaded ${uploaded}/${artifacts.length} artifacts to gs://${UPLOADS_BUCKET}/simulations/${paperId}/`);
+  }
+
   // 7. Fallback Discord report — only if Claude Code didn't send one (timeout case)
   //    Claude Code sends its own AI-written report during normal runs (see spec.md).
   //    This fallback fires only when the process timed out.
