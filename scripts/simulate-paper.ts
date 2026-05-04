@@ -201,7 +201,13 @@ async function main() {
   spec += `   - "contradicted": simulation produces inconsistent results\n`;
   spec += `   - "fragile": result depends on parameters/resolution\n`;
   spec += `   - "underdetermined": not enough info to decide\n`;
-  spec += `   - "not_simulable": can't test computationally\n\n`;
+  spec += `   - "not_evaluated": can't test computationally. MUST include a \`not_evaluated_reason\`:\n`;
+  spec += `     - "no_data": required dataset is unavailable\n`;
+  spec += `     - "compute_unavailable": needs GPU/TPU not available in this environment\n`;
+  spec += `     - "theoretical_claim": requires formal mathematical proof, not simulation\n`;
+  spec += `     - "insufficient_detail": paper doesn't specify enough methodology to implement\n`;
+  spec += `     - "observational_claim": requires real-world data collection\n`;
+  spec += `     - "out_of_scope": modality not supported (wet lab, clinical trial, etc.)\n\n`;
   spec += `6. **Extract reusable code into the shared library.** After finishing all simulations,\n`;
   spec += `   identify any functions or classes that would be useful for future papers and copy\n`;
   spec += `   them into \`${libDir}/\` as standalone modules. Good candidates:\n`;
@@ -227,7 +233,8 @@ async function main() {
   spec += `    "expected_value": 3.0,\n`;
   spec += `    "simulation_file": "sim_001.py",\n`;
   spec += `    "baseline_result": "...",\n`;
-  spec += `    "proposed_result": "..."\n`;
+  spec += `    "proposed_result": "...",\n`;
+  spec += `    "not_evaluated_reason": "no_data | compute_unavailable | theoretical_claim | insufficient_detail | observational_claim | out_of_scope (only when verdict is not_evaluated)"\n`;
   spec += `  }\n`;
   spec += `]\n`;
   spec += `\`\`\`\n\n`;

@@ -273,6 +273,7 @@ async function main() {
     simulation_file?: string;
     baseline_result?: string;
     proposed_result?: string;
+    not_evaluated_reason?: string;
   }>;
 
   const claims = await sql`SELECT * FROM claims WHERE paper_id = ${paperId} ORDER BY created_at`;
@@ -313,7 +314,7 @@ async function main() {
 
     const dbVerdict = r.verdict === "reproduced" ? "confirmed"
       : r.verdict === "contradicted" ? "refuted"
-      : "inconclusive";
+      : "inconclusive"; // covers not_simulable, not_testable, not_evaluated, underdetermined, fragile
 
     await sql`
       INSERT INTO simulations (id, claim_id, method, result, verdict, metadata, created_at)
@@ -328,6 +329,7 @@ async function main() {
           confidence: r.confidence,
           baseline: r.baseline_result,
           proposed: r.proposed_result,
+          ...(r.not_evaluated_reason ? { not_evaluated_reason: r.not_evaluated_reason } : {}),
         })}::jsonb,
         ${dbVerdict},
         ${JSON.stringify({
@@ -335,6 +337,7 @@ async function main() {
           test_type: r.test_type,
           paper_id: paperId,
           original_verdict: r.verdict,
+          ...(r.not_evaluated_reason ? { not_evaluated_reason: r.not_evaluated_reason } : {}),
         })}::jsonb,
         NOW()
       )

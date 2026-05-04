@@ -27,6 +27,29 @@ function extractMeasuredExpected(claim: SerializedClaim): { measured?: string; e
   return {};
 }
 
+const NOT_EVALUATED_LABELS: Record<string, string> = {
+  no_data: "Dataset unavailable",
+  compute_unavailable: "Needs GPU/TPU",
+  theoretical_claim: "Requires formal proof",
+  insufficient_detail: "Insufficient methodology detail",
+  observational_claim: "Needs real-world data",
+  out_of_scope: "Out of scope (wet lab, clinical, etc.)",
+};
+
+function extractNotEvaluatedReason(claim: SerializedClaim): string | undefined {
+  for (const sim of claim.simulations) {
+    const r = sim.result as Record<string, unknown> | null;
+    if (r?.not_evaluated_reason && typeof r.not_evaluated_reason === "string") {
+      return r.not_evaluated_reason;
+    }
+    const m = sim.metadata as Record<string, unknown> | null;
+    if (m?.not_evaluated_reason && typeof m.not_evaluated_reason === "string") {
+      return m.not_evaluated_reason;
+    }
+  }
+  return undefined;
+}
+
 // ── Verdict dot color ──────────────────────────────────────────────
 
 const dotColor: Record<string, string> = {
@@ -173,6 +196,43 @@ export function FindingsPanel({ claims, onClaimClick }: FindingsPanelProps) {
               +{reproduced.length - 5} more reproduced claims in Claims tab
             </Text>
           )}
+        </section>
+      )}
+
+      {/* Not Evaluated */}
+      {untested.length > 0 && (
+        <section>
+          <Heading level={5} className="mb-3">
+            <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#D4D0C8]" />
+            Not Evaluated ({untested.length})
+          </Heading>
+          <Text size="xs" color="muted" className="mb-3">
+            Claims that could not be tested computationally.
+          </Text>
+          <Stack gap={2}>
+            {untested.map((c) => {
+              const reason = extractNotEvaluatedReason(c);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onClaimClick(c)}
+                  className="flex w-full items-center gap-3 rounded-lg border border-[var(--color-rule-faint)] bg-white px-4 py-3 text-left transition-colors hover:bg-[var(--color-paper-warm)] cursor-pointer"
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#D4D0C8]" />
+                  <span className="flex-1 min-w-0 text-sm text-[var(--color-ink)]">
+                    {truncate(c.text, 80)}
+                  </span>
+                  {reason && (
+                    <span className="shrink-0 rounded bg-[var(--color-paper-warm)] px-2 py-0.5 text-[11px] text-[var(--color-ink-muted)]">
+                      {NOT_EVALUATED_LABELS[reason] ?? reason}
+                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-[var(--color-ink-faint)]">&#9656;</span>
+                </button>
+              );
+            })}
+          </Stack>
         </section>
       )}
     </Stack>
