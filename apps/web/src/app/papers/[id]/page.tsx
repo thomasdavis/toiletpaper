@@ -13,7 +13,6 @@ import { DontoDetails } from "@/components/donto-details";
 import { VerdictSummary } from "@/components/verdict-summary";
 import { getHistory, getContexts } from "@/lib/donto";
 import {
-  Container,
   Heading,
   Text,
   Stack,
@@ -22,10 +21,7 @@ import {
 import { DebugPanel } from "@/components/debug-panel";
 import { SimulationStream } from "@/components/simulation-stream";
 import { CollapsibleDetails } from "@/components/collapsible-details";
-import { FindingsPanel } from "@/components/findings-panel";
-import { ClaimsPanel } from "@/components/claims-panel";
-import { SimulationsPanel } from "@/components/simulations-panel";
-import { CodePanel } from "@/components/code-panel";
+import { PaperWorkspace } from "@/components/paper-workspace";
 import type { SerializedClaim, SerializedSimulation } from "@/components/claim-drawer";
 
 export async function generateMetadata({
@@ -36,9 +32,7 @@ export async function generateMetadata({
   const { id } = await params;
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) return { title: "Paper not found" };
-  const description =
-    paper.abstract?.slice(0, 200) ??
-    `Reproducibility analysis of "${paper.title}" on toiletpaper.`;
+  const description = paper.abstract?.slice(0, 200) ?? `Reproducibility analysis of "${paper.title}"`;
   return {
     title: paper.title,
     description,
@@ -120,8 +114,8 @@ export default async function PaperDetailPage({
   const serializedSims: SerializedSimulation[] = sims.map(serializeSim);
 
   return (
-    <div className="p-6">
-      {/* ── Header ── */}
+    <div className="p-6 max-w-5xl">
+      {/* Header */}
       <header className="mb-6">
         <div className="flex items-start gap-3">
           <Heading level={3} className="flex-1 min-w-0">{paper.title}</Heading>
@@ -130,15 +124,11 @@ export default async function PaperDetailPage({
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#6B6B6B]">
           {paper.authors && paper.authors.length > 0 && <span>{paper.authors.join(", ")}</span>}
           {paper.domain && paper.domain !== "unknown" && (
-            <span className="rounded-full border border-[#E8E5DE] bg-[#FAFAF8] px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.18em]">
-              {paper.domain}
-            </span>
+            <span className="rounded-full border border-[#E8E5DE] bg-[#FAFAF8] px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.18em]">{paper.domain}</span>
           )}
           {paper.pdfUrl && (
             <a href={`/api/papers/${id}/source`} target="_blank" rel="noreferrer"
-              className="rounded-md border border-[#D4D0C8] bg-white px-2.5 py-1 font-medium text-[#3D3D3D] shadow-sm hover:bg-[#F5F3EF] cursor-pointer">
-              Source
-            </a>
+              className="rounded-md border border-[#D4D0C8] bg-white px-2.5 py-1 font-medium text-[#3D3D3D] shadow-sm hover:bg-[#F5F3EF] cursor-pointer">Source</a>
           )}
           <DontoStatusPill paperId={id} />
         </div>
@@ -147,15 +137,14 @@ export default async function PaperDetailPage({
         )}
       </header>
 
-      {/* ── Live simulation stream ── */}
+      {/* Live simulation stream */}
       {(paper.status === "simulating" || paper.status === "extracted") && (
         <div className="mb-6"><SimulationStream paperId={id} /></div>
       )}
 
-      {/* ── Tab content ── */}
+      {/* Tab content */}
       {activeTab === "overview" && (
         <Stack gap={6}>
-          {/* Scoreboard */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <StatCard label="Total Claims" value={paperClaims.length} />
             <StatCard label="Tested" value={tested} unit={`of ${paperClaims.length}`} />
@@ -163,61 +152,39 @@ export default async function PaperDetailPage({
             <StatCard label="Contradicted" value={contradicted} className="border-l-2 border-l-[#9B2226] ring-1 ring-[#9B2226]/20" />
             <StatCard label="Fragile" value={fragile} className="border-l-2 border-l-[#B07D2B]" />
           </div>
-
-          {sims.length > 0 && (
-            <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />
-          )}
-
-          {/* Abstract */}
+          {sims.length > 0 && <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />}
           {paper.abstract && (
             <CollapsibleDetails summary="Full Abstract">
               <Text size="sm" color="light" leading="relaxed">{paper.abstract}</Text>
             </CollapsibleDetails>
           )}
-
-          {/* Donto context */}
           {paperCtx && (
-            <DontoContextInfo
-              contextIri={claimsCtxIri}
-              kind={paperCtx.kind}
-              statementCount={paperCtx.count}
-              dontoHistory={dontoHistory}
-            />
+            <DontoContextInfo contextIri={claimsCtxIri} kind={paperCtx.kind}
+              statementCount={paperCtx.count} dontoHistory={dontoHistory} />
           )}
         </Stack>
       )}
 
-      {activeTab === "findings" && (
-        <FindingsPanel claims={serializedClaims} paperId={id} />
-      )}
-
-      {activeTab === "claims" && (
-        <ClaimsPanel claims={serializedClaims} paperId={id} />
-      )}
-
-      {activeTab === "simulations" && (
-        <SimulationsPanel claims={serializedClaims} simulations={serializedSims} paperId={id} />
-      )}
-
-      {activeTab === "code" && (
-        <CodePanel simulations={serializedSims} paperId={id} />
+      {(activeTab === "findings" || activeTab === "claims" || activeTab === "simulations" || activeTab === "code") && (
+        <PaperWorkspace
+          activeTab={activeTab}
+          claims={serializedClaims}
+          simulations={serializedSims}
+          paperId={id}
+          dontoContext={paperCtx ? { contextIri: claimsCtxIri, kind: paperCtx.kind, statementCount: paperCtx.count, dontoHistory } : null}
+        />
       )}
 
       {activeTab === "evidence" && (
         <Stack gap={4}>
           {paperCtx && (
-            <DontoContextInfo
-              contextIri={claimsCtxIri}
-              kind={paperCtx.kind}
-              statementCount={paperCtx.count}
-              dontoHistory={dontoHistory}
-            />
+            <DontoContextInfo contextIri={claimsCtxIri} kind={paperCtx.kind}
+              statementCount={paperCtx.count} dontoHistory={dontoHistory} />
           )}
           <DontoDetails paperId={id} />
         </Stack>
       )}
 
-      {/* Debug */}
       <div className="mt-8">
         <CollapsibleDetails summary="Debug Data">
           <Stack gap={2}>
