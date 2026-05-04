@@ -196,12 +196,19 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
     writeFileSync(join(workDir, "paper.md"), paperSource);
   }
 
-  // Scan shared lib for existing modules
+  // Scan shared lib for existing modules + load MANIFEST
   const libModules: string[] = [];
+  let manifest: { modules: Record<string, { state: string; functions: string[] }> } | null = null;
   if (existsSync(libDir)) {
     const { readdirSync } = await import("node:fs");
     for (const f of readdirSync(libDir)) {
       if (f.endsWith(".py")) libModules.push(f);
+    }
+    const manifestPath = join(libDir, "MANIFEST.json");
+    if (existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+      } catch (_e) { /* malformed manifest */ }
     }
   }
 
@@ -270,8 +277,29 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
   spec += `**Library path:** \`${libDir}/\`\n\n`;
   if (libModules.length > 0) {
     spec += `The following reusable modules already exist from previous paper simulations:\n\n`;
-    for (const m of libModules) {
-      spec += `- \`${libDir}/${m}\`\n`;
+    if (manifest) {
+      for (const m of libModules) {
+        const entry = manifest.modules[m];
+        if (entry) {
+          spec += `- \`${libDir}/${m}\` [**${entry.state}**] — ${entry.functions.join(", ")}\n`;
+        } else {
+          spec += `- \`${libDir}/${m}\` [unregistered]\n`;
+        }
+      }
+      spec += `\n### Library Governance Rules\n\n`;
+      spec += `Modules have states: \`generated\` → \`tested\` → \`reviewed\` → \`blessed\`\n\n`;
+      spec += `- **\`blessed\` or \`tested\` modules:** import freely.\n`;
+      spec += `- **\`generated\` modules:** only import with explicit justification in your simulation comments explaining why you trust this module for your use case.\n`;
+      spec += `- When extracting new library code, **register it in MANIFEST.json** at \`${join(libDir, "MANIFEST.json")}\`:\n`;
+      spec += `  - Set \`state\` to \`"generated"\`\n`;
+      spec += `  - Set \`added_by_paper\` to \`"${paperId}"\`\n`;
+      spec += `  - Set \`added_at\` to today's date\n`;
+      spec += `  - Set \`has_tests\` to \`false\`\n`;
+      spec += `  - List all exported functions in \`functions\`\n\n`;
+    } else {
+      for (const m of libModules) {
+        spec += `- \`${libDir}/${m}\`\n`;
+      }
     }
     spec += `\n**Read these modules first.** Import and reuse them instead of rewriting.\n`;
     spec += `Add \`sys.path.insert(0, "${libDir}")\` at the top of your simulation scripts.\n\n`;

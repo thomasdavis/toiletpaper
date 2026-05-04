@@ -1,0 +1,143 @@
+{
+  "modules": {
+    "kuramoto.py": {
+      "state": "generated",
+      "added_by_paper": "ba1101be-5999-4ed7-b7e8-9a477e8b1493",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "order_parameter",
+        "kuramoto_rhs",
+        "kuramoto_step",
+        "lohe_step",
+        "steady_state_r",
+        "sweep_coupling"
+      ]
+    },
+    "output.py": {
+      "state": "generated",
+      "added_by_paper": "ba1101be-5999-4ed7-b7e8-9a477e8b1493",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "make_result",
+        "write_results"
+      ]
+    },
+    "stats.py": {
+      "state": "generated",
+      "added_by_paper": "ba1101be-5999-4ed7-b7e8-9a477e8b1493",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "bootstrap_ci",
+        "cohens_d",
+        "seed_average",
+        "spearman_rank",
+        "permutation_test"
+      ]
+    },
+    "sweep.py": {
+      "state": "generated",
+      "added_by_paper": "ba1101be-5999-4ed7-b7e8-9a477e8b1493",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "parameter_sweep",
+        "fit_scaling_law",
+        "convergence_test",
+        "relative_error",
+        "verdict_from_error"
+      ]
+    },
+    "lohe.py": {
+      "state": "generated",
+      "added_by_paper": "dc8bfc24-a0ce-49dd-8909-d2bfda23fafd",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "ModalityEncoder",
+        "LoheSync",
+        "cross_modal_retrieval",
+        "lohe_complexity"
+      ]
+    },
+    "riemannian.py": {
+      "state": "generated",
+      "added_by_paper": "39375823-0a68-4a05-a092-67252f7eea05",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "exp_map_sphere",
+        "project_tangent",
+        "RotationalAdamW",
+        "gegenbauer_coefficients",
+        "gegenbauer_cross_correlation",
+        "spherical_capacity"
+      ]
+    },
+    "spectral_genomics.py": {
+      "state": "generated",
+      "added_by_paper": "482bda6f-577b-483a-aa8f-e0c0e41d2559",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "compute_hks",
+        "build_soft_mapping",
+        "compute_cooperative_stability",
+        "compute_field_curvature",
+        "compute_persistence_features",
+        "simple_gw_distance",
+        "make_ecosystem_graph",
+        "generate_diploid_pair",
+        "compute_shared_kmer_runs"
+      ]
+    },
+    "continual_learning.py": {
+      "state": "generated",
+      "added_by_paper": "0c5e7185-f700-44ef-9464-734ece300fa2",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "get_split_mnist",
+        "get_split_fashion_mnist",
+        "remap_targets",
+        "make_loader",
+        "SmallMLP",
+        "compute_fisher",
+        "train_naive",
+        "train_with_ewc",
+        "evaluate",
+        "run_sequential_experiment"
+      ]
+    },
+    "symbiogenesis.py": {
+      "state": "generated",
+      "added_by_paper": "0c5e7185-f700-44ef-9464-734ece300fa2",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "ParentMLP",
+        "FusedMLP",
+        "train_parent",
+        "init_fused_from_parent",
+        "sequential_fusion",
+        "train_progressive",
+        "evaluate_task",
+        "run_symbiogenesis_chain"
+      ]
+    },
+    "telemetry.py": {
+      "state": "generated",
+      "added_by_paper": "893c2457-05b3-4b3c-aeab-5401f3336ea9",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "segmented_regression",
+        "logistic_disturbance_model",
+        "compute_directional_persistence",
+        "bin_and_average"
+      ]
+    }
+  }
+}
