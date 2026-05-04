@@ -1,6 +1,7 @@
 "use client";
 
-import { type HTMLAttributes, type ReactNode, forwardRef, useEffect, useRef } from "react";
+import { type HTMLAttributes, type ReactNode, forwardRef, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "./cn";
 
 export interface DrawerProps extends HTMLAttributes<HTMLDivElement> {
@@ -14,6 +15,11 @@ export interface DrawerProps extends HTMLAttributes<HTMLDivElement> {
 export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
   ({ className, open, onClose, side = "right", title, footer, children, ...props }, ref) => {
     const overlayRef = useRef<HTMLDivElement>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
     useEffect(() => {
       if (!open) return;
@@ -28,9 +34,9 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
       };
     }, [open, onClose]);
 
-    if (!open) return null;
+    if (!open || !mounted) return null;
 
-    return (
+    const content = (
       <div
         ref={overlayRef}
         className="fixed inset-0 z-50 flex"
@@ -60,7 +66,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--color-ink-muted)] hover:bg-[var(--color-paper)] hover:text-[var(--color-ink)]"
+                className="flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--color-ink-muted)] hover:bg-[var(--color-paper)] hover:text-[var(--color-ink)] cursor-pointer"
                 aria-label="Close"
               >
                 ✕
@@ -80,6 +86,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
         </div>
       </div>
     );
+
+    return createPortal(content, document.body);
   },
 );
 Drawer.displayName = "Drawer";
