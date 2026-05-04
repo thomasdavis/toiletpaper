@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { papers, claims, simulations, simulationLogs } from "@toiletpaper/db";
+import { papers, claims, simulations, simulationLogs, replicationBlueprints } from "@toiletpaper/db";
 import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { PaperSidebar } from "@/components/paper-sidebar";
@@ -52,6 +52,13 @@ export default async function PaperLayout({
     .where(eq(simulationLogs.paperId, id));
   const hasSessionLogs = (logCount?.count ?? 0) > 0;
 
+  // Check if a replication blueprint exists for this paper
+  const [bpCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(replicationBlueprints)
+    .where(eq(replicationBlueprints.paperId, id));
+  const hasBlueprint = (bpCount?.count ?? 0) > 0;
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)]">
       <PaperSidebar
@@ -59,6 +66,7 @@ export default async function PaperLayout({
         hasPdf={Boolean(paper.pdfUrl)}
         hasSims={sims.length > 0}
         hasSessionLogs={hasSessionLogs}
+        hasBlueprint={hasBlueprint}
         counts={counts}
       />
       <main className="flex-1 min-w-0">

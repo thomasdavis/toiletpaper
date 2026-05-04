@@ -3,7 +3,8 @@ export const revalidate = 0;
 
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { papers, claims, simulations } from "@toiletpaper/db";
+import { papers, claims, simulations, replicationBlueprints } from "@toiletpaper/db";
+import { desc } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { PaperStatusBadge } from "@/components/paper-status-badge";
@@ -24,6 +25,7 @@ import { CollapsibleDetails } from "@/components/collapsible-details";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import { SessionLogPanel } from "@/components/session-log-panel";
 import type { SerializedClaim, SerializedSimulation } from "@/components/claim-drawer";
+import { BlueprintPanel } from "@/components/blueprint-panel";
 
 export async function generateMetadata({
   params,
@@ -95,6 +97,24 @@ export default async function PaperDetailPage({
       claimIds.map((cid) => db.select().from(simulations).where(eq(simulations.claimId, cid))),
     );
     sims = allSims.flat();
+  }
+
+  // Fetch latest blueprint for this paper (only if on blueprint tab to avoid extra query)
+  let blueprintData: unknown = null;
+  let blueprintModel: string | null = null;
+  let blueprintCreatedAt: string | null = null;
+  if (activeTab === "blueprint") {
+    const [bp] = await db
+      .select()
+      .from(replicationBlueprints)
+      .where(eq(replicationBlueprints.paperId, id))
+      .orderBy(desc(replicationBlueprints.createdAt))
+      .limit(1);
+    if (bp) {
+      blueprintData = bp.blueprint;
+      blueprintModel = bp.modelUsed;
+      blueprintCreatedAt = bp.createdAt.toISOString();
+    }
   }
 
   const paperIri = `tp:paper:${id}`;
@@ -174,6 +194,14 @@ export default async function PaperDetailPage({
           simulations={serializedSims}
           paperId={id}
           dontoContext={paperCtx ? { contextIri: claimsCtxIri, kind: paperCtx.kind, statementCount: paperCtx.count, dontoHistory } : null}
+        />
+      )}
+
+      {activeTab === "blueprint" && blueprintData && (
+        <BlueprintPanel
+          blueprint={blueprintData}
+          modelUsed={blueprintModel}
+          createdAt={blueprintCreatedAt}
         />
       )}
 

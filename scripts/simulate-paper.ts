@@ -103,6 +103,84 @@ async function main() {
     } catch (_e) { /* */ }
   }
 
+  // 3d. Generate replication blueprint via LLM
+  console.log("Generating replication blueprint...");
+  interface BlueprintCluster {
+    claim_ids: string[];
+    test_strategy: "independent_implementation" | "proxy_simulation" | "static_check" | "algebraic";
+    compute_tier: "cpu" | "gpu";
+    required_data: string[];
+    required_packages: string[];
+    expected_outputs: string[];
+    invalid_shortcuts: string[];
+    minimum_valid_test: string;
+  }
+  interface Blueprint {
+    clusters: BlueprintCluster[];
+  }
+
+  let blueprint: Blueprint | null = null;
+  const XAI_API_KEY = process.env.XAI_API_KEY;
+  if (XAI_API_KEY && enriched.length > 0) {
+    const blueprintPrompt = `Given these ${enriched.length} claims from the paper "${paper.title}", create a replication blueprint.
+
+For each claim or group of related claims, produce:
+- claim_ids: which claim IDs to test together
+- test_strategy: "independent_implementation" | "proxy_simulation" | "static_check" | "algebraic"
+- compute_tier: "cpu" | "gpu"
+- required_data: what datasets/inputs are needed
+- required_packages: Python packages needed
+- expected_outputs: what metrics to measure
+- invalid_shortcuts: things the simulation must NOT do
+- minimum_valid_test: the simplest test that would still be meaningful
+
+Return JSON: { "clusters": [...] }
+
+Claims:
+${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
+
+    try {
+      const resp = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${XAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "grok-3-mini-fast",
+          messages: [
+            { role: "system", content: "You are a scientific replication planner. Return ONLY valid JSON, no markdown fences." },
+            { role: "user", content: blueprintPrompt },
+          ],
+          temperature: 0.3,
+        }),
+      });
+      if (resp.ok) {
+        const data = (await resp.json()) as {
+          choices: Array<{ message: { content: string } }>;
+        };
+        const raw = data.choices?.[0]?.message?.content ?? "";
+        // Strip markdown fences if present
+        const cleaned = raw.replace(/^```(?:json)?\s*\n?/gm, "").replace(/\n?```\s*$/gm, "").trim();
+        blueprint = JSON.parse(cleaned) as Blueprint;
+        console.log(`Blueprint generated: ${blueprint.clusters.length} cluster(s)`);
+
+        // Store in DB
+        await sql`
+          INSERT INTO replication_blueprints (paper_id, blueprint, model_used)
+          VALUES (${paperId}, ${JSON.stringify(blueprint)}::jsonb, 'grok-3-mini-fast')
+        `;
+        console.log("Blueprint saved to database.");
+      } else {
+        console.warn(`Blueprint LLM call failed: ${resp.status} ${resp.statusText}`);
+      }
+    } catch (e) {
+      console.warn("Blueprint generation failed:", e instanceof Error ? e.message : e);
+    }
+  } else if (!XAI_API_KEY) {
+    console.log("Skipping blueprint generation (XAI_API_KEY not set).");
+  }
+
   // 4. Write simulation spec
   const simRoot = join(process.cwd(), ".simulations");
   const libDir = join(simRoot, "lib");
@@ -163,6 +241,29 @@ async function main() {
     if (claim.predicate) spec += `**Predicate:** ${claim.predicate}\n`;
     spec += `**Confidence:** ${claim.confidence ?? "?"}\n`;
     spec += `**Donto IRI:** ${claim.dontoIri ?? "none"}\n\n`;
+  }
+
+  // Include replication blueprint if generated
+  if (blueprint) {
+    spec += `## Replication Blueprint\n\n`;
+    spec += `A replication plan was generated before this simulation run. **Follow this blueprint** — it specifies test strategies, required packages, and constraints for each claim cluster.\n\n`;
+    for (const [ci, cluster] of blueprint.clusters.entries()) {
+      spec += `### Cluster ${ci + 1}\n\n`;
+      spec += `- **Claim IDs:** ${cluster.claim_ids.join(", ")}\n`;
+      spec += `- **Test Strategy:** ${cluster.test_strategy}\n`;
+      spec += `- **Compute Tier:** ${cluster.compute_tier}\n`;
+      spec += `- **Required Data:** ${cluster.required_data.join(", ") || "none"}\n`;
+      spec += `- **Required Packages:** ${cluster.required_packages.join(", ") || "none"}\n`;
+      spec += `- **Expected Outputs:** ${cluster.expected_outputs.join(", ") || "none"}\n`;
+      spec += `- **Minimum Valid Test:** ${cluster.minimum_valid_test}\n`;
+      if (cluster.invalid_shortcuts.length > 0) {
+        spec += `- **INVALID SHORTCUTS (do NOT do these):**\n`;
+        for (const shortcut of cluster.invalid_shortcuts) {
+          spec += `  - ${shortcut}\n`;
+        }
+      }
+      spec += `\n`;
+    }
   }
 
   spec += `## Shared Simulation Library\n\n`;

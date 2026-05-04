@@ -351,6 +351,22 @@ export const replicationUnits = pgTable(
 );
 
 // ────────────────────────────────────────────────────────────────────────────
+// replication_blueprints: intermediate planning artifacts for simulations
+// ────────────────────────────────────────────────────────────────────────────
+
+export const replicationBlueprints = pgTable("replication_blueprints", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  paperId: uuid("paper_id")
+    .references(() => papers.id, { onDelete: "cascade" })
+    .notNull(),
+  blueprint: jsonb("blueprint").notNull(), // the full plan JSON
+  modelUsed: text("model_used"), // which LLM generated it
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 // simulation_logs: real-time Claude Code session streaming
 // ────────────────────────────────────────────────────────────────────────────
 
