@@ -72,6 +72,37 @@ async function main() {
     });
   }
 
+  // 3b. Fetch all Donto statements for this paper's context
+  let dontoStatements: Array<{ subject: string; predicate: string; object: string }> = [];
+  try {
+    const ctxResp = await fetch(`${DONTOSRV_URL}/history/tp:paper:${paperId}`);
+    if (ctxResp.ok) {
+      const ctxData = await ctxResp.json() as { rows: Array<{ subject: string; predicate: string; object_lit?: { v: unknown }; object_iri?: string }> };
+      dontoStatements = (ctxData.rows ?? []).map(r => ({
+        subject: r.subject,
+        predicate: r.predicate,
+        object: String(r.object_lit?.v ?? r.object_iri ?? ""),
+      }));
+    }
+  } catch (_e) { /* dontosrv may be down */ }
+
+  // 3c. Fetch original paper source text
+  let paperSource = "";
+  if (paper.pdf_url) {
+    try {
+      if (paper.pdf_url.startsWith("gs://")) {
+        // GCS — fetch via signed URL or just note the path
+        paperSource = `[Paper stored at ${paper.pdf_url} — not fetched in this run]`;
+      } else {
+        // Local file
+        const localPath = join(process.cwd(), paper.pdf_url.replace(/^\//, ""));
+        if (existsSync(localPath)) {
+          paperSource = readFileSync(localPath, "utf-8");
+        }
+      }
+    } catch (_e) { /* */ }
+  }
+
   // 4. Write simulation spec
   const simRoot = join(process.cwd(), ".simulations");
   const libDir = join(simRoot, "lib");
@@ -81,6 +112,11 @@ async function main() {
 
   const specPath = join(workDir, "spec.md");
   const resultsPath = join(workDir, "results.json");
+
+  // Write paper source to work dir so Claude Code can read it
+  if (paperSource && paperSource.length > 100) {
+    writeFileSync(join(workDir, "paper.md"), paperSource);
+  }
 
   // Scan shared lib for existing modules
   const libModules: string[] = [];
@@ -95,6 +131,28 @@ async function main() {
   spec += `**Paper ID:** ${paperId}\n`;
   spec += `**Authors:** ${(paper.authors ?? []).join(", ")}\n`;
   spec += `**Abstract:** ${(paper.abstract ?? "").slice(0, 500)}\n\n`;
+
+  // Include original paper source reference
+  if (existsSync(join(workDir, "paper.md"))) {
+    spec += `## Original Paper\n\n`;
+    spec += `The full paper source is at \`${join(workDir, "paper.md")}\`. Read it for full context on methodology, experimental setup, and results tables.\n\n`;
+  }
+
+  // Include Donto knowledge graph statements
+  if (dontoStatements.length > 0) {
+    spec += `## Donto Evidence Substrate (${dontoStatements.length} statements)\n\n`;
+    spec += `These are the structured knowledge graph assertions extracted from this paper:\n\n`;
+    spec += `\`\`\`\n`;
+    for (const s of dontoStatements.slice(0, 200)) {
+      spec += `${s.subject} → ${s.predicate} → ${s.object}\n`;
+    }
+    if (dontoStatements.length > 200) {
+      spec += `... (${dontoStatements.length - 200} more statements)\n`;
+    }
+    spec += `\`\`\`\n\n`;
+    spec += `Use these structured facts to inform your simulation design — they contain precise values, predicates, and relationships extracted from the paper.\n\n`;
+  }
+
   spec += `## Claims to Test\n\n`;
 
   for (const [i, claim] of enriched.entries()) {
