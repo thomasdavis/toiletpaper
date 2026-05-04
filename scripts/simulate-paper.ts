@@ -120,8 +120,8 @@ async function main() {
   }
 
   let blueprint: Blueprint | null = null;
-  const XAI_API_KEY = process.env.XAI_API_KEY;
-  if (XAI_API_KEY && enriched.length > 0) {
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY;
+  if (OPENROUTER_API_KEY && enriched.length > 0) {
     const blueprintPrompt = `Given these ${enriched.length} claims from the paper "${paper.title}", create a replication blueprint.
 
 For each claim or group of related claims, produce:
@@ -140,14 +140,14 @@ Claims:
 ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
 
     try {
-      const resp = await fetch("https://api.x.ai/v1/chat/completions", {
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${XAI_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "grok-3-mini-fast",
+          model: "x-ai/grok-4.1-fast",
           messages: [
             { role: "system", content: "You are a scientific replication planner. Return ONLY valid JSON, no markdown fences." },
             { role: "user", content: blueprintPrompt },
@@ -160,15 +160,13 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
           choices: Array<{ message: { content: string } }>;
         };
         const raw = data.choices?.[0]?.message?.content ?? "";
-        // Strip markdown fences if present
         const cleaned = raw.replace(/^```(?:json)?\s*\n?/gm, "").replace(/\n?```\s*$/gm, "").trim();
         blueprint = JSON.parse(cleaned) as Blueprint;
         console.log(`Blueprint generated: ${blueprint.clusters.length} cluster(s)`);
 
-        // Store in DB
         await sql`
           INSERT INTO replication_blueprints (paper_id, blueprint, model_used)
-          VALUES (${paperId}, ${JSON.stringify(blueprint)}::jsonb, 'grok-3-mini-fast')
+          VALUES (${paperId}, ${JSON.stringify(blueprint)}::jsonb, 'x-ai/grok-4.1-fast')
         `;
         console.log("Blueprint saved to database.");
       } else {
@@ -177,8 +175,8 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
     } catch (e) {
       console.warn("Blueprint generation failed:", e instanceof Error ? e.message : e);
     }
-  } else if (!XAI_API_KEY) {
-    console.log("Skipping blueprint generation (XAI_API_KEY not set).");
+  } else if (!OPENROUTER_API_KEY) {
+    console.log("Skipping blueprint generation (OPENROUTER_API_KEY not set).");
   }
 
   // 4. Write simulation spec
