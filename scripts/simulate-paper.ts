@@ -319,7 +319,7 @@ async function main() {
       {
         cwd: workDir,
         stdio: "inherit",
-        timeout: 30 * 60 * 1000, // 30 minutes
+        timeout: 60 * 60 * 1000, // 60 minutes
         env: {
           ...process.env,
           DATABASE_URL,
@@ -328,66 +328,109 @@ async function main() {
       },
     );
   } catch (e) {
-    console.error("Claude Code exited:", e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Claude Code exited:", msg);
+    // On timeout, try to collect partial results
+    if (msg.includes("ETIMEDOUT") || msg.includes("timed out")) {
+      console.log("Attempting to collect partial results...");
+      try {
+        const collectScript = join(workDir, "collect_results.py");
+        if (existsSync(collectScript)) {
+          execSync(`python3 ${collectScript}`, { cwd: workDir, stdio: "inherit", timeout: 30_000 });
+        } else {
+          // Try to find and merge any *_output.json or results_*.json files
+          const partials = readdirSync(workDir).filter(f =>
+            (f.startsWith("results_") || f.endsWith("_output.json")) && f !== "results.json"
+          );
+          if (partials.length > 0) {
+            let merged: unknown[] = [];
+            for (const p of partials) {
+              try {
+                const data = JSON.parse(readFileSync(join(workDir, p), "utf-8"));
+                merged = merged.concat(Array.isArray(data) ? data : [data]);
+              } catch (_e) { /* skip */ }
+            }
+            if (merged.length > 0) {
+              writeFileSync(resultsPath, JSON.stringify(merged, null, 2));
+              console.log(`Merged ${merged.length} results from ${partials.length} partial files`);
+            }
+          }
+        }
+      } catch (_e) { /* best effort */ }
+    }
   }
 
   if (tailInterval) clearInterval(tailInterval);
 
-  // 6. Read results and store in DB
+  // 6. Read results and store in DB via ingest-results.ts (uses fuzzy matching)
   if (existsSync(resultsPath)) {
-    console.log(`\nReading results from ${resultsPath}...`);
-    const results = JSON.parse(readFileSync(resultsPath, "utf-8")) as Array<{
-      claim_index: number;
-      claim_text: string;
-      test_type: string;
-      verdict: string;
-      confidence: number;
-      reason: string;
-      measured_value?: number;
-      expected_value?: number;
-      simulation_file?: string;
-    }>;
-
-    for (const r of results) {
-      const claim = claims[r.claim_index];
-      if (!claim) continue;
-
-      await sql`
-        INSERT INTO simulations (id, claim_id, method, result, verdict, metadata, created_at)
-        VALUES (
-          gen_random_uuid(),
-          ${claim.id},
-          ${`claude-code-${r.test_type}`},
-          ${JSON.stringify({ reason: r.reason, measured: r.measured_value, expected: r.expected_value, confidence: r.confidence })}::jsonb,
-          ${r.verdict === "reproduced" ? "confirmed" : r.verdict === "contradicted" ? "refuted" : "inconclusive"},
-          ${JSON.stringify({ simulation_file: r.simulation_file, test_type: r.test_type })}::jsonb,
-          NOW()
-        )
-      `;
+    console.log(`\nIngesting results via ingest-results.ts...`);
+    try {
+      execSync(`npx tsx scripts/ingest-results.ts ${paperId}`, {
+        cwd: join(workDir, "../.."),
+        stdio: "inherit",
+        timeout: 120_000,
+        env: { ...process.env, DATABASE_URL, DONTOSRV_URL },
+      });
+    } catch (e) {
+      console.error("Ingest failed:", e instanceof Error ? e.message : e);
     }
-
-    // Update paper status
-    await sql`UPDATE papers SET status = 'done', updated_at = NOW() WHERE id = ${paperId}`;
-
-    console.log(`\nStored ${results.length} simulation results`);
-
-    // Print summary
-    const reproduced = results.filter((r) => r.verdict === "reproduced").length;
-    const contradicted = results.filter((r) => r.verdict === "contradicted").length;
-    const fragile = results.filter((r) => r.verdict === "fragile").length;
-    console.log(`\n╔══════════════════════════════════════════╗`);
-    console.log(`║  ${paper.title.slice(0, 38).padEnd(38)}  ║`);
-    console.log(`╠══════════════════════════════════════════╣`);
-    console.log(`║  Reproduced:    ${String(reproduced).padStart(4)}                    ║`);
-    console.log(`║  Contradicted:  ${String(contradicted).padStart(4)}                    ║`);
-    console.log(`║  Fragile:       ${String(fragile).padStart(4)}                    ║`);
-    console.log(`║  Total tested:  ${String(results.length).padStart(4)}                    ║`);
-    console.log(`╚══════════════════════════════════════════╝`);
   } else {
     console.log("\nNo results file found — Claude Code may not have completed.");
   }
 
+  // 7. Send Discord report (post-processing — don't rely on Claude Code doing it)
+  const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500500494471397467/v3uYy70jnidcnrBWqviVSfAQKhtoNnHZDlpm3X3unAZOFEEaB-ppFLqN7HeOgTODPIbH";
+  if (existsSync(resultsPath)) {
+    try {
+      const results = JSON.parse(readFileSync(resultsPath, "utf-8")) as Array<{
+        claim_index: number; claim_text: string; test_type: string;
+        verdict: string; confidence: number; reason: string;
+        measured_value?: number; expected_value?: number; simulation_file?: string;
+      }>;
+
+      const verdicts: Record<string, number> = {};
+      for (const r of results) verdicts[r.verdict] = (verdicts[r.verdict] ?? 0) + 1;
+
+      const scripts = readdirSync(workDir).filter(f => f.startsWith("sim_") && f.endsWith(".py"));
+
+      // Header message
+      let header = `📄 **Simulation Report: ${paper.title}**\n\n`;
+      header += `🔗 ${WEB_URL}/papers/${paperId}\n\n`;
+      header += `**Summary:** ${results.length} claims tested`;
+      for (const [v, c] of Object.entries(verdicts)) header += ` | ${c} ${v}`;
+      header += `\n\n**Scripts written:** ${scripts.join(", ")}`;
+      await sendDiscord(DISCORD_WEBHOOK, header);
+
+      // Per-claim verdicts (batch into messages under 2000 chars)
+      let batch = "**Per-Claim Verdicts:**\n";
+      for (const r of results.filter(r => r.verdict !== "not_testable")) {
+        const icon = r.verdict === "reproduced" ? "✅" : r.verdict === "contradicted" ? "❌" : r.verdict === "fragile" ? "⚠️" : "❓";
+        const line = `${icon} **${r.verdict}** | ${r.claim_text?.slice(0, 60)}…\n→ ${r.reason?.slice(0, 100)}\n\n`;
+        if (batch.length + line.length > 1900) {
+          await sendDiscord(DISCORD_WEBHOOK, batch);
+          batch = "";
+        }
+        batch += line;
+      }
+      if (batch.length > 0) await sendDiscord(DISCORD_WEBHOOK, batch);
+
+    } catch (e) {
+      console.error("Discord report failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   await sql.end();
+}
+
+async function sendDiscord(webhook: string, content: string) {
+  await fetch(webhook, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ content: content.slice(0, 2000) }),
+  });
+  // Rate limit: Discord allows ~5 messages/5s
+  await new Promise(r => setTimeout(r, 1200));
 }
 
 main().catch((e) => {

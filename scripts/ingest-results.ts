@@ -105,11 +105,34 @@ const dontoSql = postgres(DONTO_DSN);
 // ── Donto helpers ───────────────────────────────────────────────────
 
 async function dontoAssert(subject: string, predicate: string, objectLit: { v: string; dt: string }, context: string) {
-  await fetch(`${DONTOSRV_URL}/assert`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ subject, predicate, object_lit: objectLit, context }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    await fetch(`${DONTOSRV_URL}/assert`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ subject, predicate, object_lit: objectLit, context }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function dontoAssertBatch(statements: Array<{ subject: string; predicate: string; object_lit: { v: string; dt: string }; context: string }>) {
+  if (statements.length === 0) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    await fetch(`${DONTOSRV_URL}/assert/batch`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ statements }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function getClaimStatementId(iri: string): Promise<string | null> {
@@ -172,19 +195,18 @@ async function ingestToDonto(
   const context = `tp:paper:${paperId}:claims`;
 
   try {
-    // 1. Assert verdict quad
-    await dontoAssert(iri, "tp:simulationVerdict", { v: r.verdict, dt: "xsd:string" }, context);
-
-    // 2. Assert reason quad
-    await dontoAssert(iri, "tp:verdictReason", { v: r.reason, dt: "xsd:string" }, context);
-
-    // 3. Assert measured/expected if available
+    // Batch assert verdict quads
+    const batch: Array<{ subject: string; predicate: string; object_lit: { v: string; dt: string }; context: string }> = [
+      { subject: iri, predicate: "tp:simulationVerdict", object_lit: { v: r.verdict, dt: "xsd:string" }, context },
+      { subject: iri, predicate: "tp:verdictReason", object_lit: { v: r.reason.slice(0, 500), dt: "xsd:string" }, context },
+    ];
     if (r.measured_value != null) {
-      await dontoAssert(iri, "tp:measuredValue", { v: String(r.measured_value), dt: "xsd:string" }, context);
+      batch.push({ subject: iri, predicate: "tp:measuredValue", object_lit: { v: String(r.measured_value), dt: "xsd:string" }, context });
     }
     if (r.expected_value != null) {
-      await dontoAssert(iri, "tp:expectedValue", { v: String(r.expected_value), dt: "xsd:string" }, context);
+      batch.push({ subject: iri, predicate: "tp:expectedValue", object_lit: { v: String(r.expected_value), dt: "xsd:string" }, context });
     }
+    await dontoAssertBatch(batch);
 
     // 4. Wire argument via SQL
     const claimStmtId = await getClaimStatementId(iri);
