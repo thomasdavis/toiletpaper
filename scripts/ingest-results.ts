@@ -10,6 +10,85 @@ import postgres from "postgres";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
+// ── Fuzzy matching helpers ──────────────────────────────────────────
+
+/** Levenshtein distance between two strings (bounded for perf). */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Limit computation for very long strings — compare first 200 chars
+  const maxLen = 200;
+  const sa = a.slice(0, maxLen);
+  const sb = b.slice(0, maxLen);
+
+  const m = sa.length;
+  const n = sb.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0]!;
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j]!;
+      dp[j] = sa[i - 1] === sb[j - 1]
+        ? prev
+        : 1 + Math.min(prev, dp[j]!, dp[j - 1]!);
+      prev = temp;
+    }
+  }
+  return dp[n]!;
+}
+
+/** Normalized similarity score (0..1, higher = more similar). */
+function similarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const maxLen = Math.max(a.length, b.length, 1);
+  const dist = levenshtein(a.toLowerCase(), b.toLowerCase());
+  return 1 - dist / Math.min(maxLen, 200);
+}
+
+/** Find the best matching claim for a given result text using multiple strategies. */
+function findBestMatch(claims: Record<string, unknown>[], resultText: string | undefined): Record<string, unknown> | undefined {
+  if (!resultText) return undefined;
+
+  const normalized = resultText.trim().toLowerCase();
+
+  // Strategy 1: Exact match on full text
+  const exact = claims.find(c => (c.text as string).trim().toLowerCase() === normalized);
+  if (exact) return exact;
+
+  // Strategy 2: One text contains the other (handles truncation)
+  const containsMatch = claims.find(c => {
+    const ct = (c.text as string).trim().toLowerCase();
+    return ct.includes(normalized) || normalized.includes(ct);
+  });
+  if (containsMatch) return containsMatch;
+
+  // Strategy 3: Prefix match (first 60 chars)
+  const prefix = normalized.slice(0, 60);
+  const prefixMatch = claims.find(c =>
+    (c.text as string).trim().toLowerCase().startsWith(prefix)
+  );
+  if (prefixMatch) return prefixMatch;
+
+  // Strategy 4: Levenshtein similarity — pick the best above threshold
+  let bestClaim: Record<string, unknown> | undefined;
+  let bestScore = 0;
+  const THRESHOLD = 0.6;
+
+  for (const c of claims) {
+    const score = similarity((c.text as string), resultText);
+    if (score > bestScore) {
+      bestScore = score;
+      bestClaim = c;
+    }
+  }
+
+  return bestScore >= THRESHOLD ? bestClaim : undefined;
+}
+
 const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://toiletpaper:toiletpaper@127.0.0.1:5434/toiletpaper";
 const DONTOSRV_URL = process.env.DONTOSRV_URL ?? "http://localhost:7879";
 const DONTO_DSN = process.env.DONTO_DSN ?? "postgres://donto:donto@127.0.0.1:55433/donto";
@@ -178,18 +257,18 @@ async function main() {
 
   let stored = 0;
   let skipped = 0;
+  const matchedClaimIds = new Set<string>();
   for (const r of results) {
-    // Match by claim text instead of index — claim_index values are unreliable
-    const claim = claims.find(c =>
-      c.text.slice(0, 50) === r.claim_text?.slice(0, 50)
-    ) ?? claims.find(c =>
-      r.claim_text && c.text.includes(r.claim_text.slice(0, 30))
-    );
+    // Match by text similarity — claim_index values from Claude Code are unreliable
+    const unmatched = claims.filter(c => !matchedClaimIds.has(c.id as string));
+    const claim = findBestMatch(unmatched, r.claim_text)
+      ?? findBestMatch(claims, r.claim_text); // fallback: allow re-match if all else fails
     if (!claim) {
       console.warn(`  ⚠ No matching claim found for index=${r.claim_index}, text="${r.claim_text?.slice(0, 80) ?? "(none)"}". Skipping.`);
       skipped++;
       continue;
     }
+    matchedClaimIds.add(claim.id as string);
 
     const dbVerdict = r.verdict === "reproduced" ? "confirmed"
       : r.verdict === "contradicted" ? "refuted"
