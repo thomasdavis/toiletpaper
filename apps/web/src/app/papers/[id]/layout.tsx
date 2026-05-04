@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { papers, claims, simulations } from "@toiletpaper/db";
-import { eq } from "drizzle-orm";
+import { papers, claims, simulations, simulationLogs } from "@toiletpaper/db";
+import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { PaperSidebar } from "@/components/paper-sidebar";
 
@@ -45,12 +45,20 @@ export default async function PaperLayout({
     fragile: claimsWithSims.filter((c) => getClaimVerdict(c.sims) === "fragile").length,
   };
 
+  // Check if simulation session logs exist for this paper
+  const [logCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(simulationLogs)
+    .where(eq(simulationLogs.paperId, id));
+  const hasSessionLogs = (logCount?.count ?? 0) > 0;
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)]">
       <PaperSidebar
         paperId={id}
         hasPdf={Boolean(paper.pdfUrl)}
         hasSims={sims.length > 0}
+        hasSessionLogs={hasSessionLogs}
         counts={counts}
       />
       <main className="flex-1 min-w-0">

@@ -22,6 +22,7 @@ import { DebugPanel } from "@/components/debug-panel";
 import { SimulationStream } from "@/components/simulation-stream";
 import { CollapsibleDetails } from "@/components/collapsible-details";
 import { PaperWorkspace } from "@/components/paper-workspace";
+import { SessionLogPanel } from "@/components/session-log-panel";
 import type { SerializedClaim, SerializedSimulation } from "@/components/claim-drawer";
 
 export async function generateMetadata({
@@ -183,6 +184,10 @@ export default async function PaperDetailPage({
           )}
           <DontoDetails paperId={id} />
         </Stack>
+      )}
+
+      {activeTab === "session" && (
+        <SessionLogPanel paperId={id} isLive={paper.status === "simulating"} />
       )}
 
       <div className="mt-8">

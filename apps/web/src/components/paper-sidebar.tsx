@@ -8,6 +8,7 @@ interface Props {
   paperId: string;
   hasPdf: boolean;
   hasSims: boolean;
+  hasSessionLogs: boolean;
   counts: {
     claims: number;
     simulations: number;
@@ -27,7 +28,7 @@ interface NavItem {
   group: "views" | "analysis" | "data";
 }
 
-export function PaperSidebar({ paperId, hasPdf, hasSims, counts }: Props) {
+export function PaperSidebar({ paperId, hasPdf, hasSims, hasSessionLogs, counts }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
@@ -41,6 +42,7 @@ export function PaperSidebar({ paperId, hasPdf, hasSims, counts }: Props) {
     { key: "simulations", label: "Simulations", href: `/papers/${paperId}?tab=simulations`, show: hasSims, group: "analysis", count: counts.simulations },
     { key: "code", label: "Code", href: `/papers/${paperId}?tab=code`, show: hasSims, group: "analysis" },
     { key: "evidence", label: "Evidence Graph", href: `/papers/${paperId}?tab=evidence`, show: true, group: "data" },
+    { key: "session", label: "Session Log", href: `/papers/${paperId}?tab=session`, show: hasSessionLogs, group: "data" },
   ];
 
   function isActive(item: NavItem): boolean {
