@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 interface Props {
   paperId: string;
@@ -28,6 +29,8 @@ interface NavItem {
 
 export function PaperSidebar({ paperId, hasPdf, hasSims, counts }: Props) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab");
 
   const items: NavItem[] = [
     { key: "overview", label: "Overview", href: `/papers/${paperId}`, show: true, group: "views" },
@@ -43,11 +46,10 @@ export function PaperSidebar({ paperId, hasPdf, hasSims, counts }: Props) {
   function isActive(item: NavItem): boolean {
     if (item.href.includes("?tab=")) {
       const tab = item.href.split("?tab=")[1];
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        return pathname === `/papers/${paperId}` && params.get("tab") === tab;
-      }
-      return false;
+      return pathname === `/papers/${paperId}` && currentTab === tab;
+    }
+    if (item.key === "overview") {
+      return pathname === `/papers/${paperId}` && !currentTab;
     }
     return pathname === item.href;
   }
