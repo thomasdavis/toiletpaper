@@ -379,9 +379,13 @@ async function main() {
     console.log("\nNo results file found — Claude Code may not have completed.");
   }
 
-  // 7. Send Discord report (post-processing — don't rely on Claude Code doing it)
+  // 7. Fallback Discord report — only if Claude Code didn't send one (timeout case)
+  //    Claude Code sends its own AI-written report during normal runs (see spec.md).
+  //    This fallback fires only when the process timed out.
   const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1500500494471397467/v3uYy70jnidcnrBWqviVSfAQKhtoNnHZDlpm3X3unAZOFEEaB-ppFLqN7HeOgTODPIbH";
-  if (existsSync(resultsPath)) {
+  const timedOut = !existsSync(resultsPath) || (e instanceof Error && e.message.includes("ETIMEDOUT"));
+  if (existsSync(resultsPath) && timedOut) {
+    console.log("Claude Code timed out — sending fallback Discord report...");
     try {
       const results = JSON.parse(readFileSync(resultsPath, "utf-8")) as Array<{
         claim_index: number; claim_text: string; test_type: string;
@@ -392,31 +396,13 @@ async function main() {
       const verdicts: Record<string, number> = {};
       for (const r of results) verdicts[r.verdict] = (verdicts[r.verdict] ?? 0) + 1;
 
-      const scripts = readdirSync(workDir).filter(f => f.startsWith("sim_") && f.endsWith(".py"));
-
-      // Header message
-      let header = `📄 **Simulation Report: ${paper.title}**\n\n`;
-      header += `🔗 ${WEB_URL}/papers/${paperId}\n\n`;
-      header += `**Summary:** ${results.length} claims tested`;
-      for (const [v, c] of Object.entries(verdicts)) header += ` | ${c} ${v}`;
-      header += `\n\n**Scripts written:** ${scripts.join(", ")}`;
-      await sendDiscord(DISCORD_WEBHOOK, header);
-
-      // Per-claim verdicts (batch into messages under 2000 chars)
-      let batch = "**Per-Claim Verdicts:**\n";
-      for (const r of results.filter(r => r.verdict !== "not_testable")) {
-        const icon = r.verdict === "reproduced" ? "✅" : r.verdict === "contradicted" ? "❌" : r.verdict === "fragile" ? "⚠️" : "❓";
-        const line = `${icon} **${r.verdict}** | ${r.claim_text?.slice(0, 60)}…\n→ ${r.reason?.slice(0, 100)}\n\n`;
-        if (batch.length + line.length > 1900) {
-          await sendDiscord(DISCORD_WEBHOOK, batch);
-          batch = "";
-        }
-        batch += line;
-      }
-      if (batch.length > 0) await sendDiscord(DISCORD_WEBHOOK, batch);
-
+      let msg = `📄 **${paper.title}** _(fallback report — agent timed out)_\n\n`;
+      msg += `🔗 ${WEB_URL}/papers/${paperId}\n\n`;
+      msg += `**Summary:** ${results.length} claims tested`;
+      for (const [v, c] of Object.entries(verdicts)) msg += ` | ${c} ${v}`;
+      await sendDiscord(DISCORD_WEBHOOK, msg);
     } catch (e) {
-      console.error("Discord report failed:", e instanceof Error ? e.message : e);
+      console.error("Fallback Discord report failed:", e instanceof Error ? e.message : e);
     }
   }
 
@@ -429,7 +415,6 @@ async function sendDiscord(webhook: string, content: string) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ content: content.slice(0, 2000) }),
   });
-  // Rate limit: Discord allows ~5 messages/5s
   await new Promise(r => setTimeout(r, 1200));
 }
 
