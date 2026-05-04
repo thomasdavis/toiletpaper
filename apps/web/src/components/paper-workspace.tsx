@@ -30,11 +30,13 @@ export function PaperWorkspace({ activeTab, paperId, claims, simulations }: Prop
   const closeDrawer = useCallback(() => setDrawerClaim(null), []);
 
   const simFiles = useMemo(() => {
+    const seen = new Set<string>();
     const files: { simId: string; filename: string; method: string; verdict: string | null }[] = [];
     for (const sim of simulations) {
       const meta = sim.metadata as Record<string, unknown> | null;
       const filename = meta?.simulation_file as string | undefined;
-      if (filename) {
+      if (filename && !seen.has(filename)) {
+        seen.add(filename);
         files.push({ simId: sim.id, filename, method: sim.method, verdict: sim.verdict });
       }
     }
