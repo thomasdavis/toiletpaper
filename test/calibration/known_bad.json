@@ -1,0 +1,72 @@
+[
+  {
+    "id": "cal_101",
+    "claim": "Pi equals exactly 3.0",
+    "expected_verdict": "contradicted",
+    "test_type": "algebraic",
+    "test_fn": "pi_equals_three"
+  },
+  {
+    "id": "cal_102",
+    "claim": "The square root of 2 is rational (equals 1.4)",
+    "expected_verdict": "contradicted",
+    "test_type": "algebraic",
+    "test_fn": "sqrt2_rational"
+  },
+  {
+    "id": "cal_103",
+    "claim": "For all positive reals a, b: (a + b)^2 = a^2 + b^2",
+    "expected_verdict": "contradicted",
+    "test_type": "algebraic",
+    "test_fn": "binomial_wrong"
+  },
+  {
+    "id": "cal_104",
+    "claim": "Bubble sort runs in O(n) time on random input",
+    "expected_verdict": "contradicted",
+    "test_type": "scaling_law",
+    "test_fn": "bubble_sort_linear"
+  },
+  {
+    "id": "cal_105",
+    "claim": "The mean of a standard normal distribution is 1.0",
+    "expected_verdict": "contradicted",
+    "test_type": "statistical",
+    "test_fn": "normal_mean_is_one"
+  },
+  {
+    "id": "cal_106",
+    "claim": "Random coin flips have a 75% probability of heads",
+    "expected_verdict": "contradicted",
+    "test_type": "statistical",
+    "test_fn": "biased_coin"
+  },
+  {
+    "id": "cal_107",
+    "claim": "The Kuramoto model synchronizes at K = 0 (zero coupling)",
+    "expected_verdict": "contradicted",
+    "test_type": "numerical_prediction",
+    "test_fn": "kuramoto_zero_coupling"
+  },
+  {
+    "id": "cal_108",
+    "claim": "The determinant of a 2x2 identity matrix is 0",
+    "expected_verdict": "contradicted",
+    "test_type": "algebraic",
+    "test_fn": "identity_det_zero"
+  },
+  {
+    "id": "cal_109",
+    "claim": "Linear regression on y = 2x + 3 recovers slope of 5.0",
+    "expected_verdict": "contradicted",
+    "test_type": "numerical_prediction",
+    "test_fn": "linear_regression_wrong_slope"
+  },
+  {
+    "id": "cal_110",
+    "claim": "Matrix multiplication of n x n matrices scales as O(n^1)",
+    "expected_verdict": "contradicted",
+    "test_type": "scaling_law",
+    "test_fn": "matmul_linear_scaling"
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "id": "cal_001",
+    "claim": "The sum of angles in a triangle is 180 degrees",
+    "expected_verdict": "reproduced",
+    "test_type": "algebraic",
+    "test_fn": "triangle_angle_sum"
+  },
+  {
+    "id": "cal_002",
+    "claim": "The area of a circle with radius r is pi * r^2",
+    "expected_verdict": "reproduced",
+    "test_type": "algebraic",
+    "test_fn": "circle_area"
+  },
+  {
+    "id": "cal_003",
+    "claim": "e^(i*pi) + 1 = 0 (Euler's identity)",
+    "expected_verdict": "reproduced",
+    "test_type": "algebraic",
+    "test_fn": "euler_identity"
+  },
+  {
+    "id": "cal_004",
+    "claim": "The derivative of x^n is n*x^(n-1) for positive integer n",
+    "expected_verdict": "reproduced",
+    "test_type": "algebraic",
+    "test_fn": "power_rule"
+  },
+  {
+    "id": "cal_005",
+    "claim": "The Kuramoto order parameter approaches 1 for coupling K >> K_c",
+    "expected_verdict": "reproduced",
+    "test_type": "numerical_prediction",
+    "test_fn": "kuramoto_strong_coupling"
+  },
+  {
+    "id": "cal_006",
+    "claim": "Sorting n items with comparison sort requires O(n log n) comparisons",
+    "expected_verdict": "reproduced",
+    "test_type": "scaling_law",
+    "test_fn": "sort_scaling"
+  },
+  {
+    "id": "cal_007",
+    "claim": "The mean of a large uniform(0,1) sample converges to 0.5",
+    "expected_verdict": "reproduced",
+    "test_type": "statistical",
+    "test_fn": "uniform_mean_convergence"
+  },
+  {
+    "id": "cal_008",
+    "claim": "Matrix multiplication of n x n matrices scales as O(n^3)",
+    "expected_verdict": "reproduced",
+    "test_type": "scaling_law",
+    "test_fn": "matmul_scaling"
+  },
+  {
+    "id": "cal_009",
+    "claim": "The Central Limit Theorem: sample means of any distribution approach normality",
+    "expected_verdict": "reproduced",
+    "test_type": "statistical",
+    "test_fn": "clt_normality"
+  },
+  {
+    "id": "cal_010",
+    "claim": "Linear regression on y = 2x + 3 + noise recovers slope near 2",
+    "expected_verdict": "reproduced",
+    "test_type": "numerical_prediction",
+    "test_fn": "linear_regression_recovery"
+  }
+]
