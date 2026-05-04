@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { VerdictBadge, Text, Heading, Stack, EmptyState } from "@toiletpaper/ui";
 import type { SerializedClaim } from "./claim-drawer";
-import { getClaimVerdict } from "./claim-drawer";
+import { getClaimVerdict, EvidenceModeBadge } from "./claim-drawer";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -35,6 +35,13 @@ const NOT_EVALUATED_LABELS: Record<string, string> = {
   observational_claim: "Needs real-world data",
   out_of_scope: "Out of scope (wet lab, clinical, etc.)",
 };
+
+function extractEvidenceMode(claim: SerializedClaim): string | null {
+  for (const sim of claim.simulations) {
+    if (sim.evidenceMode) return sim.evidenceMode;
+  }
+  return null;
+}
 
 function extractNotEvaluatedReason(claim: SerializedClaim): string | undefined {
   for (const sim of claim.simulations) {
@@ -71,6 +78,7 @@ function ClaimRow({
 }) {
   const verdict = getClaimVerdict(claim);
   const { measured, expected } = extractMeasuredExpected(claim);
+  const evidenceMode = extractEvidenceMode(claim);
 
   return (
     <button
@@ -79,6 +87,7 @@ function ClaimRow({
       className="flex w-full items-center gap-3 rounded-lg border border-[var(--color-rule-faint)] bg-white px-4 py-3 text-left transition-colors hover:bg-[var(--color-paper-warm)] cursor-pointer"
     >
       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor[verdict]}`} />
+      {evidenceMode && <EvidenceModeBadge mode={evidenceMode} />}
       <span className="flex-1 min-w-0 text-sm text-[var(--color-ink)]">
         {truncate(claim.text, 80)}
       </span>

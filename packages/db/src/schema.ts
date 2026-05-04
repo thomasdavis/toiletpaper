@@ -177,6 +177,14 @@ export const simulations = pgTable(
     replacesId: uuid("replaces_id"),
     result: jsonb("result"),
     verdict: verdictEnum("verdict"),
+    /**
+     * Evidence grading — classifies _how_ the verdict was reached.
+     * "exact_artifact" | "independent_implementation" | "proxy_simulation"
+     * | "static_check" | "formal_proof" | "insufficient"
+     */
+    evidenceMode: text("evidence_mode"),
+    /** Known limitations of the evidence, e.g. ["synthetic data", "reduced epochs"] */
+    limitations: text("limitations").array(),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

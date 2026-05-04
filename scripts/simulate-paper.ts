@@ -218,7 +218,15 @@ async function main() {
   spec += `   - Dimensional analysis checkers\n`;
   spec += `   - Result formatting / JSON output helpers\n`;
   spec += `   Each module should have a docstring explaining what it does and example usage.\n\n`;
-  spec += `7. **Write results** to ${resultsPath} as JSON array:\n`;
+  spec += `7. **Classify evidence mode.** For each result, honestly assess how the verdict was produced:\n`;
+  spec += `   - "exact_artifact": you used the paper's original code/data to reproduce\n`;
+  spec += `   - "independent_implementation": you wrote new code implementing the paper's method with real data\n`;
+  spec += `   - "proxy_simulation": simplified/synthetic experiment testing plausibility (e.g. reduced epochs, synthetic data, toy scale)\n`;
+  spec += `   - "static_check": algebraic, dimensional analysis, or unit consistency check\n`;
+  spec += `   - "formal_proof": symbolic/formal verification\n`;
+  spec += `   - "insufficient": couldn't produce meaningful evidence\n\n`;
+  spec += `   Also list concrete limitations of your evidence. Be honest — a 2-epoch run on synthetic data is NOT the same as a full reproduction.\n\n`;
+  spec += `8. **Write results** to ${resultsPath} as JSON array:\n`;
   spec += `\`\`\`json\n`;
   spec += `[\n`;
   spec += `  {\n`;
@@ -227,6 +235,8 @@ async function main() {
   spec += `    "claim_text": "...",\n`;
   spec += `    "test_type": "scaling_law",\n`;
   spec += `    "verdict": "reproduced",\n`;
+  spec += `    "evidence_mode": "proxy_simulation",\n`;
+  spec += `    "limitations": ["synthetic data", "3 epochs instead of 100", "cpu-scale only"],\n`;
   spec += `    "confidence": 0.9,\n`;
   spec += `    "reason": "Fitted exponent 2.98 matches expected 3.0 within 1%",\n`;
   spec += `    "measured_value": 2.98,\n`;

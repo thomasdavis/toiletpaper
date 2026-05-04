@@ -54,6 +54,7 @@ function serializeSim(sim: typeof simulations.$inferSelect): SerializedSimulatio
   return {
     id: sim.id, claimId: sim.claimId, method: sim.method, simulatorId: sim.simulatorId,
     runId: sim.runId, replacesId: sim.replacesId, result: sim.result, verdict: sim.verdict,
+    evidenceMode: sim.evidenceMode, limitations: sim.limitations,
     metadata: sim.metadata, createdAt: sim.createdAt.toISOString(),
   };
 }

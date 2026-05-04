@@ -25,8 +25,40 @@ export interface SerializedSimulation {
   replacesId: string | null;
   result: unknown;
   verdict: string | null;
+  evidenceMode: string | null;
+  limitations: string[] | null;
   metadata: unknown;
   createdAt: string;
+}
+
+// ── Evidence mode helpers ─────────────────────────────────────────
+
+export type EvidenceMode =
+  | "exact_artifact"
+  | "independent_implementation"
+  | "proxy_simulation"
+  | "static_check"
+  | "formal_proof"
+  | "insufficient";
+
+const EVIDENCE_MODE_META: Record<EvidenceMode, { label: string; color: string }> = {
+  exact_artifact:              { label: "Exact Artifact",    color: "bg-[#1B4332] text-white" },
+  independent_implementation:  { label: "Independent Impl",  color: "bg-[#2D6A4F] text-white" },
+  proxy_simulation:            { label: "Proxy Simulation",  color: "bg-[#B07D2B] text-white" },
+  static_check:                { label: "Static Check",      color: "bg-[#2563EB] text-white" },
+  formal_proof:                { label: "Formal Proof",      color: "bg-[#7C3AED] text-white" },
+  insufficient:                { label: "Insufficient",      color: "bg-[#A8A29E] text-white" },
+};
+
+export function EvidenceModeBadge({ mode }: { mode: string | null }) {
+  if (!mode) return null;
+  const meta = EVIDENCE_MODE_META[mode as EvidenceMode];
+  if (!meta) return null;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide ${meta.color}`}>
+      {meta.label}
+    </span>
+  );
 }
 
 export interface SerializedClaim {
@@ -221,7 +253,10 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
                   >
                     <Stack gap={2}>
                       <Stack direction="horizontal" align="center" justify="between">
-                        <VerdictBadge verdict={simVerdict} />
+                        <Stack direction="horizontal" align="center" gap={2} wrap>
+                          <VerdictBadge verdict={simVerdict} />
+                          <EvidenceModeBadge mode={sim.evidenceMode} />
+                        </Stack>
                         <Text size="xs" color="muted">
                           {formatMethodName(sim.method)}
                         </Text>
@@ -265,6 +300,21 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
                             {(result.confidence * 100).toFixed(0)}%
                           </Text>
                         </Stack>
+                      )}
+                      {sim.limitations && sim.limitations.length > 0 && (
+                        <div>
+                          <Label size="xs" className="mb-1 block">Limitations</Label>
+                          <div className="flex flex-wrap gap-1">
+                            {sim.limitations.map((lim) => (
+                              <span
+                                key={lim}
+                                className="rounded bg-[var(--color-paper-warm)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-muted)]"
+                              >
+                                {lim}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </Stack>
                   </div>

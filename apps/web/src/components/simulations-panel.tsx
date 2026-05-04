@@ -10,6 +10,7 @@ import {
   EmptyState,
 } from "@toiletpaper/ui";
 import type { SerializedClaim, SerializedSimulation } from "./claim-drawer";
+import { EvidenceModeBadge } from "./claim-drawer";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ function SimulationRow({ sim, claimText }: SimRowProps) {
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--color-paper)] cursor-pointer"
       >
         <VerdictBadge verdict={verdict} />
+        <EvidenceModeBadge mode={sim.evidenceMode} />
         <span className="flex-1 min-w-0 text-sm text-[var(--color-ink-light)]">
           {formatMethodName(sim.method)}
         </span>

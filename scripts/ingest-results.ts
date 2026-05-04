@@ -274,6 +274,8 @@ async function main() {
     baseline_result?: string;
     proposed_result?: string;
     not_evaluated_reason?: string;
+    evidence_mode?: string;
+    limitations?: string[];
   }>;
 
   const claims = await sql`SELECT * FROM claims WHERE paper_id = ${paperId} ORDER BY created_at`;
@@ -316,8 +318,13 @@ async function main() {
       : r.verdict === "contradicted" ? "refuted"
       : "inconclusive"; // covers not_simulable, not_testable, not_evaluated, underdetermined, fragile
 
+    // Validate evidence_mode against known values; null if unrecognised
+    const VALID_EVIDENCE_MODES = ["exact_artifact", "independent_implementation", "proxy_simulation", "static_check", "formal_proof", "insufficient"];
+    const evidenceMode = r.evidence_mode && VALID_EVIDENCE_MODES.includes(r.evidence_mode) ? r.evidence_mode : null;
+    const limitations = Array.isArray(r.limitations) && r.limitations.length > 0 ? r.limitations : null;
+
     await sql`
-      INSERT INTO simulations (id, claim_id, method, result, verdict, metadata, created_at)
+      INSERT INTO simulations (id, claim_id, method, result, verdict, evidence_mode, limitations, metadata, created_at)
       VALUES (
         gen_random_uuid(),
         ${claim.id},
@@ -332,6 +339,8 @@ async function main() {
           ...(r.not_evaluated_reason ? { not_evaluated_reason: r.not_evaluated_reason } : {}),
         })}::jsonb,
         ${dbVerdict},
+        ${evidenceMode},
+        ${limitations},
         ${JSON.stringify({
           simulation_file: r.simulation_file,
           test_type: r.test_type,
