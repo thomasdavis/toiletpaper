@@ -20,6 +20,7 @@ export {
   buildReplicationUnitsFromDonto,
   type BaselineRequirement,
   type ComputeBudget,
+  type ComputeTier,
   type DatasetRequirement,
   type DontoReplicationBundleInput,
   type DontoStatementInput,

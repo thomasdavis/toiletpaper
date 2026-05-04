@@ -276,6 +276,8 @@ async function main() {
     not_evaluated_reason?: string;
     evidence_mode?: string;
     limitations?: string[];
+    compute_tier?: "cpu" | "gpu";
+    gpu_script?: string;
   }>;
 
   const claims = await sql`SELECT * FROM claims WHERE paper_id = ${paperId} ORDER BY created_at`;
@@ -347,6 +349,8 @@ async function main() {
           paper_id: paperId,
           original_verdict: r.verdict,
           ...(r.not_evaluated_reason ? { not_evaluated_reason: r.not_evaluated_reason } : {}),
+          ...(r.compute_tier ? { compute_tier: r.compute_tier } : {}),
+          ...(r.gpu_script ? { gpu_script: r.gpu_script } : {}),
         })}::jsonb,
         NOW()
       )

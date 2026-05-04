@@ -71,8 +71,12 @@ export interface ParameterRequirement {
   required: boolean;
 }
 
+export type ComputeTier = "cpu" | "gpu";
+
 export interface ComputeBudget {
   tier: "algebraic" | "tiny" | "reduced" | "full" | "human";
+  /** Runtime compute tier — "cpu" for CPU-only execution, "gpu" for GPU-required claims */
+  computeTier?: ComputeTier;
   maxCpuHours?: number;
   maxGpuHours?: number;
   maxMemoryGb?: number;
@@ -323,16 +327,16 @@ function parameterRequirementsForStatement(statement: DontoStatementInput): Para
 
 function computeBudgetForUnit(unitType: ReplicationUnitType): ComputeBudget {
   if (unitType === "metric_recompute" || unitType === "baseline_contrast") {
-    return { tier: "reduced", maxGpuHours: 24, maxMemoryGb: 48 };
+    return { tier: "reduced", computeTier: "gpu", maxGpuHours: 24, maxMemoryGb: 48 };
   }
   if (unitType === "artifact_availability" || unitType === "dataset_integrity") {
-    return { tier: "tiny", maxCpuHours: 1 };
+    return { tier: "tiny", computeTier: "cpu", maxCpuHours: 1 };
   }
   if (unitType === "equation_check") {
-    return { tier: "algebraic", maxCpuHours: 0.1 };
+    return { tier: "algebraic", computeTier: "cpu", maxCpuHours: 0.1 };
   }
   if (unitType === "statistical_significance") {
-    return { tier: "tiny", maxCpuHours: 2, maxMemoryGb: 8 };
+    return { tier: "tiny", computeTier: "cpu", maxCpuHours: 2, maxMemoryGb: 8 };
   }
   return { tier: "human" };
 }

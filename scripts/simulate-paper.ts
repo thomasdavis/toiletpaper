@@ -179,6 +179,26 @@ async function main() {
     spec += `will be available to all future paper simulations.\n\n`;
   }
 
+  spec += `## Compute Environment\n\n`;
+  spec += `You are running on **CPU only** (no GPU/TPU). This affects how you handle ML-heavy claims.\n\n`;
+  spec += `For claims that can run on CPU (algebraic, scaling laws, small numerical sims): run them normally.\n\n`;
+  spec += `For claims that **require GPU** (training neural networks, large matrix ops, CUDA kernels):\n`;
+  spec += `- Mark them as \`not_evaluated\` with \`not_evaluated_reason: "compute_unavailable"\`\n`;
+  spec += `- Write a **self-contained GPU script** named \`gpu_claim_<CLAIM_INDEX>.py\` in the work directory\n`;
+  spec += `- The GPU script must:\n`;
+  spec += `  - Be completely self-contained (all imports, all code, no external file deps)\n`;
+  spec += `  - Install its own deps at the top: \`subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", ...])\`\n`;
+  spec += `  - Print a JSON result to stdout as its last output line, matching the results.json schema\n`;
+  spec += `  - Complete within 15 minutes on an NVIDIA L4 GPU (24GB VRAM)\n`;
+  spec += `  - Include a shebang line: \`#!/usr/bin/env python3\`\n`;
+  spec += `- In the results.json entry for that claim, set:\n`;
+  spec += `  - \`"compute_tier": "gpu"\`\n`;
+  spec += `  - \`"gpu_script": "gpu_claim_<N>.py"\` (the filename you wrote)\n`;
+  spec += `  - \`"verdict": "not_evaluated"\`\n`;
+  spec += `  - \`"not_evaluated_reason": "compute_unavailable"\`\n\n`;
+  spec += `These GPU scripts will be run separately on Cloud Run Jobs with an NVIDIA L4 GPU.\n`;
+  spec += `Write them to be production-quality — they will execute unattended.\n\n`;
+
   spec += `## Instructions for Claude Code\n\n`;
   spec += `You are simulating claims from a scientific paper. For each testable claim:\n\n`;
   spec += `1. **Determine testability:** Is this claim testable with computation? Categories:\n`;
@@ -186,7 +206,7 @@ async function main() {
   spec += `   - "numerical_prediction": test by computing the predicted value\n`;
   spec += `   - "comparative": test by implementing both models and comparing\n`;
   spec += `   - "algebraic": test with symbolic math / dimensional analysis\n`;
-  spec += `   - "ml_benchmark": test by training models and comparing metrics\n`;
+  spec += `   - "ml_benchmark": test by training models and comparing metrics (may need GPU — see Compute Environment)\n`;
   spec += `   - "not_testable": skip\n\n`;
   spec += `2. **Check the shared library** at \`${libDir}/\` for existing utilities before writing new code.\n`;
   spec += `   Import reusable modules with: \`sys.path.insert(0, "${libDir}")\`\n\n`;
@@ -194,7 +214,8 @@ async function main() {
   spec += `   - Always implement BOTH the baseline model and the proposed model\n`;
   spec += `   - Include convergence tests (run at 2+ resolutions)\n`;
   spec += `   - Include conservation/sanity checks\n`;
-  spec += `   - Include parameter sweeps where applicable\n\n`;
+  spec += `   - Include parameter sweeps where applicable\n`;
+  spec += `   - If a claim needs GPU training, write a gpu_claim_*.py script instead (see Compute Environment)\n\n`;
   spec += `4. **Run the simulation** and collect results.\n\n`;
   spec += `5. **Judge the results** deterministically:\n`;
   spec += `   - "reproduced": simulation confirms claim within 5% tolerance\n`;
@@ -244,7 +265,9 @@ async function main() {
   spec += `    "simulation_file": "sim_001.py",\n`;
   spec += `    "baseline_result": "...",\n`;
   spec += `    "proposed_result": "...",\n`;
-  spec += `    "not_evaluated_reason": "no_data | compute_unavailable | theoretical_claim | insufficient_detail | observational_claim | out_of_scope (only when verdict is not_evaluated)"\n`;
+  spec += `    "not_evaluated_reason": "no_data | compute_unavailable | theoretical_claim | insufficient_detail | observational_claim | out_of_scope (only when verdict is not_evaluated)",\n`;
+  spec += `    "compute_tier": "cpu | gpu (omit or set to 'cpu' for normal claims; set to 'gpu' for claims that need GPU)",\n`;
+  spec += `    "gpu_script": "gpu_claim_0.py (only when compute_tier is 'gpu' — the self-contained script to run on GPU)"\n`;
   spec += `  }\n`;
   spec += `]\n`;
   spec += `\`\`\`\n\n`;
