@@ -138,6 +138,51 @@
         "compute_directional_persistence",
         "bin_and_average"
       ]
+    },
+    "templates/metric_recomputation.py": {
+      "state": "blessed",
+      "added_by_paper": "hand-written",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "test_metric_claim"
+      ]
+    },
+    "templates/baseline_comparison.py": {
+      "state": "blessed",
+      "added_by_paper": "hand-written",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "test_baseline_comparison"
+      ]
+    },
+    "templates/scaling_law.py": {
+      "state": "blessed",
+      "added_by_paper": "hand-written",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "test_scaling_law"
+      ]
+    },
+    "templates/seed_sensitivity.py": {
+      "state": "blessed",
+      "added_by_paper": "hand-written",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "test_seed_sensitivity"
+      ]
+    },
+    "templates/statistical_significance.py": {
+      "state": "blessed",
+      "added_by_paper": "hand-written",
+      "added_at": "2026-05-04",
+      "has_tests": false,
+      "functions": [
+        "test_significance_claim"
+      ]
     }
   }
 }

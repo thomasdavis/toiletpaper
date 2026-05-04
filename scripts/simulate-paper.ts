@@ -308,6 +308,23 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
     spec += `will be available to all future paper simulations.\n\n`;
   }
 
+  spec += `## Simulation Templates\n\n`;
+  spec += `Pre-built templates are available for common claim types at \`${libDir}/templates/\`:\n\n`;
+  spec += `- **metric_recomputation.py**: for "achieves X% accuracy" claims — recomputes the metric and compares\n`;
+  spec += `- **baseline_comparison.py**: for "outperforms Y by Z%" claims — runs both methods and compares\n`;
+  spec += `- **scaling_law.py**: for "scales as O(n^k)" claims — fits power law on log-log scale\n`;
+  spec += `- **seed_sensitivity.py**: for robustness claims — runs across multiple random seeds\n`;
+  spec += `- **statistical_significance.py**: for "p < X, effect size d = Y" claims — recomputes statistics\n\n`;
+  spec += `Import and call these instead of writing from scratch when the claim fits a template:\n`;
+  spec += `\`\`\`python\n`;
+  spec += `sys.path.insert(0, "${libDir}")\n`;
+  spec += `from templates.metric_recomputation import test_metric_claim\n`;
+  spec += `from templates.scaling_law import test_scaling_law\n`;
+  spec += `\`\`\`\n\n`;
+  spec += `Each template returns a result dict matching the toiletpaper results.json schema.\n`;
+  spec += `You still need to write the \`compute_fn\` / \`run_fn\` that does the actual computation —\n`;
+  spec += `the template handles verdict logic, tolerance checking, and output formatting.\n\n`;
+
   spec += `## Compute Environment\n\n`;
   spec += `You are running on **CPU only** (no GPU/TPU). This affects how you handle ML-heavy claims.\n\n`;
   spec += `For claims that can run on CPU (algebraic, scaling laws, small numerical sims): run them normally.\n\n`;
