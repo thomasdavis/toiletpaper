@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { papers, claims, simulations, replicationBlueprints } from "@toiletpaper/db";
+import { papers, claims, simulations, replicationBlueprints, paperDontoIngest, routerDecisions } from "@toiletpaper/db";
 import { desc } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -70,6 +70,8 @@ function serializeClaim(
     status: claim.status, confidence: claim.confidence, category: claim.category,
     predicate: claim.predicate, value: claim.value, unit: claim.unit, evidence: claim.evidence,
     testability: claim.testability, testabilityReason: claim.testabilityReason, page: claim.page,
+    sectionPath: claim.sectionPath, charStart: claim.charStart, charEnd: claim.charEnd,
+    extractorModel: claim.extractorModel, extractorVersion: claim.extractorVersion,
     dontoSubjectIri: claim.dontoSubjectIri, createdAt: claim.createdAt.toISOString(),
     simulations: claimSims.map(serializeSim),
   };
@@ -116,6 +118,18 @@ export default async function PaperDetailPage({
       blueprintCreatedAt = bp.createdAt.toISOString();
     }
   }
+
+  // Fetch Donto ingest row
+  let ingestRow: (typeof paperDontoIngest.$inferSelect) | undefined;
+  try {
+    const [row] = await db.select().from(paperDontoIngest).where(eq(paperDontoIngest.paperId, id));
+    ingestRow = row;
+  } catch {
+    ingestRow = undefined;
+  }
+
+  // Fetch router decisions for this paper
+  const routerRows = await db.select().from(routerDecisions).where(eq(routerDecisions.paperId, id));
 
   const paperIri = `tp:paper:${id}`;
   const claimsCtxIri = `tp:paper:${id}:claims`;
@@ -173,6 +187,130 @@ export default async function PaperDetailPage({
             <StatCard label="Contradicted" value={contradicted} className="border-l-2 border-l-[#9B2226] ring-1 ring-[#9B2226]/20" />
             <StatCard label="Fragile" value={fragile} className="border-l-2 border-l-[#B07D2B]" />
           </div>
+
+          {/* Paper Metadata */}
+          <div className="rounded-lg border border-[#E8E5DE] bg-white p-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-[#9B9B9B] mb-3">Paper Metadata</h4>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              {paper.year && <div><span className="text-[#9B9B9B]">Year:</span> {paper.year}</div>}
+              {paper.venue && <div><span className="text-[#9B9B9B]">Venue:</span> {paper.venue}</div>}
+              {paper.doi && (
+                <div>
+                  <span className="text-[#9B9B9B]">DOI:</span>{" "}
+                  <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noreferrer" className="text-[#2563EB] hover:underline font-mono text-xs">{paper.doi}</a>
+                </div>
+              )}
+              {paper.arxivId && (
+                <div>
+                  <span className="text-[#9B9B9B]">arXiv:</span>{" "}
+                  <a href={`https://arxiv.org/abs/${paper.arxivId}`} target="_blank" rel="noreferrer" className="text-[#2563EB] hover:underline font-mono text-xs">{paper.arxivId}</a>
+                </div>
+              )}
+              {paper.domain && paper.domain !== "unknown" && (
+                <div>
+                  <span className="text-[#9B9B9B]">Domain:</span> {paper.domain}
+                  {paper.domainConfidence != null && (
+                    <span className="ml-1 text-xs text-[#9B9B9B]">({(paper.domainConfidence * 100).toFixed(0)}% confidence)</span>
+                  )}
+                </div>
+              )}
+              {paper.pageCount != null && (
+                <div><span className="text-[#9B9B9B]">Pages:</span> {paper.pageCount}</div>
+              )}
+              {paper.bodyCharCount != null && (
+                <div><span className="text-[#9B9B9B]">Body Characters:</span> {paper.bodyCharCount.toLocaleString()}</div>
+              )}
+              {paper.extractorModel && (
+                <div><span className="text-[#9B9B9B]">Extractor Model:</span> <span className="font-mono text-xs">{paper.extractorModel}</span></div>
+              )}
+              {paper.extractorVersion && (
+                <div><span className="text-[#9B9B9B]">Extractor Version:</span> <span className="font-mono text-xs">{paper.extractorVersion}</span></div>
+              )}
+              {paper.parserVersion && (
+                <div><span className="text-[#9B9B9B]">Parser Version:</span> <span className="font-mono text-xs">{paper.parserVersion}</span></div>
+              )}
+              <div><span className="text-[#9B9B9B]">Created:</span> {paper.createdAt.toLocaleDateString()}</div>
+              <div><span className="text-[#9B9B9B]">Updated:</span> {paper.updatedAt.toLocaleDateString()}</div>
+            </div>
+          </div>
+
+          {/* Donto Ingest Details */}
+          {ingestRow && (
+            <div className="rounded-lg border border-[#E8E5DE] bg-white p-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#9B9B9B] mb-3">Donto Ingest</h4>
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                <div>
+                  <span className="text-[#9B9B9B]">State:</span>{" "}
+                  <span className={
+                    ingestRow.state === "succeeded" ? "text-[#2D6A4F] font-medium"
+                    : ingestRow.state === "failed" ? "text-[#9B2226] font-medium"
+                    : "text-[#B07D2B] font-medium"
+                  }>
+                    {ingestRow.state}
+                  </span>
+                </div>
+                <div><span className="text-[#9B9B9B]">Attempts:</span> {ingestRow.attempts}</div>
+                {ingestRow.statementCount > 0 && <div><span className="text-[#9B9B9B]">Statements:</span> {ingestRow.statementCount}</div>}
+                {ingestRow.spanCount > 0 && <div><span className="text-[#9B9B9B]">Spans:</span> {ingestRow.spanCount}</div>}
+                {ingestRow.evidenceLinkCount > 0 && <div><span className="text-[#9B9B9B]">Evidence Links:</span> {ingestRow.evidenceLinkCount}</div>}
+                {ingestRow.argumentCount > 0 && <div><span className="text-[#9B9B9B]">Arguments:</span> {ingestRow.argumentCount}</div>}
+                {ingestRow.certifiedCount > 0 && <div><span className="text-[#9B9B9B]">Certified:</span> {ingestRow.certifiedCount}</div>}
+                {ingestRow.shapeCheckCount > 0 && <div><span className="text-[#9B9B9B]">Shape Checks:</span> {ingestRow.shapeCheckCount}</div>}
+              </div>
+              {ingestRow.state === "failed" && (ingestRow.lastErrorCode || ingestRow.lastErrorMessage) && (
+                <div className="mt-3 rounded border border-[#9B2226]/20 bg-[#9B2226]/5 p-2 text-xs">
+                  {ingestRow.lastErrorCode && <div><span className="text-[#9B9B9B]">Error Code:</span> <span className="font-mono text-[#9B2226]">{ingestRow.lastErrorCode}</span></div>}
+                  {ingestRow.lastErrorMessage && <div className="mt-1"><span className="text-[#9B9B9B]">Error:</span> <span className="text-[#9B2226]">{ingestRow.lastErrorMessage}</span></div>}
+                </div>
+              )}
+              {(ingestRow.documentId || ingestRow.revisionId || ingestRow.agentId || ingestRow.runId) && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-medium text-[#9B9B9B] hover:text-[#6B6B6B]">Ingest IDs</summary>
+                  <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-xs font-mono">
+                    {ingestRow.documentId && <div><span className="text-[#9B9B9B]">Document:</span> {ingestRow.documentId}</div>}
+                    {ingestRow.revisionId && <div><span className="text-[#9B9B9B]">Revision:</span> {ingestRow.revisionId}</div>}
+                    {ingestRow.agentId && <div><span className="text-[#9B9B9B]">Agent:</span> {ingestRow.agentId}</div>}
+                    {ingestRow.runId && <div><span className="text-[#9B9B9B]">Run:</span> {ingestRow.runId}</div>}
+                  </div>
+                </details>
+              )}
+              {ingestRow.obligationIds && ingestRow.obligationIds.length > 0 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-medium text-[#9B9B9B] hover:text-[#6B6B6B]">Obligation IDs ({ingestRow.obligationIds.length})</summary>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {ingestRow.obligationIds.map((oid) => (
+                      <span key={oid} className="rounded bg-[#F5F3EF] px-1.5 py-0.5 text-[10px] font-mono text-[#6B6B6B]">{oid}</span>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
+          {/* Router Decisions */}
+          {routerRows.length > 0 && (
+            <div className="rounded-lg border border-[#E8E5DE] bg-white p-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#9B9B9B] mb-3">Router Decisions ({routerRows.length})</h4>
+              <details>
+                <summary className="cursor-pointer text-xs font-medium text-[#9B9B9B] hover:text-[#6B6B6B]">Show routing decisions</summary>
+                <div className="mt-2 space-y-2">
+                  {routerRows.map((rd) => (
+                    <div key={rd.id} className="rounded border border-[#E8E5DE] bg-[#FAFAF8] p-2 text-xs">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {rd.paperDomain && <div><span className="text-[#9B9B9B]">Domain:</span> {rd.paperDomain}</div>}
+                        {rd.claimCategory && <div><span className="text-[#9B9B9B]">Category:</span> {rd.claimCategory}</div>}
+                        <div><span className="text-[#9B9B9B]">Selected:</span> <span className="font-mono">{rd.selected.join(", ")}</span></div>
+                        <div><span className="text-[#9B9B9B]">Candidates:</span> <span className="font-mono">{rd.candidates.join(", ")}</span></div>
+                      </div>
+                      {rd.reason && <div className="mt-1 text-[#6B6B6B]">{rd.reason}</div>}
+                      <div className="mt-1 text-[10px] text-[#9B9B9B]">{new Date(rd.decidedAt).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          )}
+
           {sims.length > 0 && <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />}
           {paper.abstract && (
             <CollapsibleDetails summary="Full Abstract">

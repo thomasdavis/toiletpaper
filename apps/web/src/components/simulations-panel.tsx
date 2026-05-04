@@ -39,12 +39,63 @@ interface SimRowProps {
   claimText: string;
 }
 
+/** Render all key-value pairs from a JSONB object in a structured grid, skipping nulls */
+function JsonKvGrid({ data, label }: { data: Record<string, unknown>; label: string }) {
+  const entries = Object.entries(data).filter(([, v]) => v != null && v !== "");
+  if (entries.length === 0) return null;
+  return (
+    <div>
+      <Label size="xs" className="mb-1 block">{label}</Label>
+      <div className="rounded border border-[var(--color-rule-faint)] bg-[var(--color-paper)] p-3">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          {entries.map(([key, val]) => (
+            <div key={key} className="min-w-0">
+              <span className="text-[var(--color-ink-muted)]">{key.replace(/[_-]/g, " ")}:</span>{" "}
+              <span className="font-mono break-all">
+                {typeof val === "object" ? JSON.stringify(val) : String(val)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SimulationRow({ sim, claimText }: SimRowProps) {
   const [expanded, setExpanded] = useState(false);
   const verdict = mapVerdict(sim.verdict);
   const result = sim.result as Record<string, unknown> | null;
   const reason = typeof result?.reason === "string" ? result.reason : null;
   const meta = sim.metadata as Record<string, unknown> | null;
+
+  // Extract known result fields
+  const resultConfidence = typeof result?.confidence === "number" ? result.confidence : null;
+  // Collect "extra" result fields beyond reason/measured/expected/confidence
+  const extraResultFields: Record<string, unknown> = {};
+  if (result) {
+    for (const [k, v] of Object.entries(result)) {
+      if (!["reason", "measured", "expected", "confidence"].includes(k) && v != null && v !== "") {
+        extraResultFields[k] = v;
+      }
+    }
+  }
+
+  // Extract known metadata fields
+  const simFile = typeof meta?.simulation_file === "string" ? meta.simulation_file : null;
+  const testType = typeof meta?.test_type === "string" ? meta.test_type : null;
+  const metaPaperId = typeof meta?.paper_id === "string" ? meta.paper_id : null;
+  const originalVerdict = typeof meta?.original_verdict === "string" ? meta.original_verdict : null;
+  const review = meta?.review as Record<string, unknown> | null;
+  // Collect "extra" metadata fields
+  const extraMetaFields: Record<string, unknown> = {};
+  if (meta) {
+    for (const [k, v] of Object.entries(meta)) {
+      if (!["simulation_file", "test_type", "paper_id", "original_verdict", "review"].includes(k) && v != null && v !== "") {
+        extraMetaFields[k] = v;
+      }
+    }
+  }
 
   return (
     <div className="rounded-lg border border-[var(--color-rule-faint)] bg-white overflow-hidden">
@@ -114,12 +165,86 @@ function SimulationRow({ sim, claimText }: SimRowProps) {
               </div>
             )}
 
+            {/* Result confidence */}
+            {resultConfidence != null && (
+              <div>
+                <Label size="xs">Result Confidence</Label>
+                <Text size="xs" weight="semibold" className="font-mono">{(resultConfidence * 100).toFixed(0)}%</Text>
+              </div>
+            )}
+
+            {/* Extra result fields */}
+            {Object.keys(extraResultFields).length > 0 && (
+              <JsonKvGrid data={extraResultFields} label="Additional Result Fields" />
+            )}
+
+            {/* Structured metadata */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              {sim.simulatorId && (
+                <div><span className="text-[var(--color-ink-muted)]">Simulator ID:</span> <span className="font-mono">{sim.simulatorId}</span></div>
+              )}
+              {sim.runId && (
+                <div><span className="text-[var(--color-ink-muted)]">Run ID:</span> <span className="font-mono">{sim.runId}</span></div>
+              )}
+              {sim.replacesId && (
+                <div><span className="text-[var(--color-ink-muted)]">Replaces:</span> <span className="font-mono">{sim.replacesId}</span></div>
+              )}
+              {simFile && (
+                <div><span className="text-[var(--color-ink-muted)]">Simulation File:</span> <span className="font-mono">{simFile}</span></div>
+              )}
+              {testType && (
+                <div><span className="text-[var(--color-ink-muted)]">Test Type:</span> {testType}</div>
+              )}
+              {metaPaperId && (
+                <div><span className="text-[var(--color-ink-muted)]">Paper ID:</span> <span className="font-mono">{metaPaperId}</span></div>
+              )}
+              {originalVerdict && (
+                <div><span className="text-[var(--color-ink-muted)]">Original Verdict:</span> {originalVerdict}</div>
+              )}
+            </div>
+
+            {/* Limitations */}
+            {sim.limitations && sim.limitations.length > 0 && (
+              <div>
+                <Label size="xs" className="mb-1 block">Limitations</Label>
+                <div className="flex flex-wrap gap-1">
+                  {sim.limitations.map((lim) => (
+                    <span key={lim} className="rounded bg-[var(--color-paper-warm)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-muted)]">{lim}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Review data */}
+            {review && typeof review === "object" && (
+              <div>
+                <Label size="xs" className="mb-1 block">Review</Label>
+                <div className="rounded border border-[var(--color-rule-faint)] bg-[var(--color-paper)] p-3">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                    {Object.entries(review).filter(([, v]) => v != null && v !== "").map(([k, v]) => (
+                      <div key={k} className="min-w-0">
+                        <span className="text-[var(--color-ink-muted)]">{k.replace(/[_-]/g, " ")}:</span>{" "}
+                        <span className="font-mono break-all">
+                          {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Extra metadata fields */}
+            {Object.keys(extraMetaFields).length > 0 && (
+              <JsonKvGrid data={extraMetaFields} label="Additional Metadata" />
+            )}
+
             {/* Timestamp */}
             <Text size="xs" color="faint">
               Ran: {new Date(sim.createdAt).toLocaleString()}
             </Text>
 
-            {/* Full result JSON */}
+            {/* Full result JSON (fallback) */}
             {result && (
               <details className="group">
                 <summary className="cursor-pointer text-xs font-medium text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]">
@@ -131,11 +256,11 @@ function SimulationRow({ sim, claimText }: SimRowProps) {
               </details>
             )}
 
-            {/* Metadata */}
+            {/* Full metadata JSON (fallback) */}
             {meta && (
               <details className="group">
                 <summary className="cursor-pointer text-xs font-medium text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]">
-                  Metadata
+                  Full metadata JSON
                 </summary>
                 <Code variant="block" className="mt-2 max-h-64 overflow-auto text-xs">
                   {JSON.stringify(meta, null, 2)}

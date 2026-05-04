@@ -76,6 +76,11 @@ export interface SerializedClaim {
   testability: number | null;
   testabilityReason: string | null;
   page: number | null;
+  sectionPath: string[] | null;
+  charStart: number | null;
+  charEnd: number | null;
+  extractorModel: string | null;
+  extractorVersion: string | null;
   dontoSubjectIri: string | null;
   createdAt: string;
   simulations: SerializedSimulation[];
@@ -410,6 +415,64 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
               })}
             </Stack>
           </div>
+        )}
+
+        {/* Claim Metadata (collapsible) */}
+        {(claim.canonicalText || claim.page != null || claim.sectionPath || claim.charStart != null || claim.extractorModel || claim.dontoSubjectIri) && (
+          <>
+            <Divider />
+            <details className="group">
+              <summary className="cursor-pointer text-xs font-medium text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]">
+                Claim Metadata
+              </summary>
+              <div className="mt-2 rounded-lg border border-[var(--color-rule-faint)] bg-[var(--color-paper)] p-3">
+                <div className="grid gap-2 text-xs">
+                  {claim.canonicalText && claim.canonicalText !== claim.text && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Canonical Text:</span>
+                      <Text size="xs" color="light" className="mt-0.5">{claim.canonicalText}</Text>
+                    </div>
+                  )}
+                  {claim.page != null && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Page:</span>{" "}
+                      <span className="font-mono">{claim.page}</span>
+                    </div>
+                  )}
+                  {claim.sectionPath && claim.sectionPath.length > 0 && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Section Path:</span>{" "}
+                      <span className="font-mono">{claim.sectionPath.join(" > ")}</span>
+                    </div>
+                  )}
+                  {claim.charStart != null && claim.charEnd != null && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Character Span:</span>{" "}
+                      <span className="font-mono">{claim.charStart}&#8211;{claim.charEnd}</span>
+                    </div>
+                  )}
+                  {claim.extractorModel && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Extractor Model:</span>{" "}
+                      <span className="font-mono">{claim.extractorModel}</span>
+                    </div>
+                  )}
+                  {claim.extractorVersion && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Extractor Version:</span>{" "}
+                      <span className="font-mono">{claim.extractorVersion}</span>
+                    </div>
+                  )}
+                  {claim.dontoSubjectIri && (
+                    <div>
+                      <span className="text-[#9B9B9B]">Donto IRI:</span>{" "}
+                      <Code className="text-[10px] break-all">{claim.dontoSubjectIri}</Code>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </details>
+          </>
         )}
 
         {/* Inspect in Donto button */}
