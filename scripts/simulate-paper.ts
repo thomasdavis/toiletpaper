@@ -254,14 +254,15 @@ ${enriched.map((c) => `[${c.id}] ${c.text}`).join("\n")}`;
     spec += `A replication plan was generated before this simulation run. **Follow this blueprint** — it specifies test strategies, required packages, and constraints for each claim cluster.\n\n`;
     for (const [ci, cluster] of blueprint.clusters.entries()) {
       spec += `### Cluster ${ci + 1}\n\n`;
-      spec += `- **Claim IDs:** ${cluster.claim_ids.join(", ")}\n`;
+      const toList = (v: unknown): string => Array.isArray(v) ? v.join(", ") : String(v ?? "none");
+      spec += `- **Claim IDs:** ${toList(cluster.claim_ids)}\n`;
       spec += `- **Test Strategy:** ${cluster.test_strategy}\n`;
       spec += `- **Compute Tier:** ${cluster.compute_tier}\n`;
-      spec += `- **Required Data:** ${cluster.required_data.join(", ") || "none"}\n`;
-      spec += `- **Required Packages:** ${cluster.required_packages.join(", ") || "none"}\n`;
-      spec += `- **Expected Outputs:** ${cluster.expected_outputs.join(", ") || "none"}\n`;
+      spec += `- **Required Data:** ${toList(cluster.required_data)}\n`;
+      spec += `- **Required Packages:** ${toList(cluster.required_packages)}\n`;
+      spec += `- **Expected Outputs:** ${toList(cluster.expected_outputs)}\n`;
       spec += `- **Minimum Valid Test:** ${cluster.minimum_valid_test}\n`;
-      if (cluster.invalid_shortcuts.length > 0) {
+      if (Array.isArray(cluster.invalid_shortcuts) && cluster.invalid_shortcuts.length > 0) {
         spec += `- **INVALID SHORTCUTS (do NOT do these):**\n`;
         for (const shortcut of cluster.invalid_shortcuts) {
           spec += `  - ${shortcut}\n`;
