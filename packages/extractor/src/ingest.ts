@@ -107,6 +107,9 @@ export async function ingestPaperIntoDonto(
   const paperCtx = `tp:paper:${paperId}:claims`;
   const parserVersion = mediaType === "text/markdown" ? "markdown-raw" : "pdf-parse-1.1.1";
 
+  // Sanitize text for Postgres — strip null bytes and control chars
+  pdfText = pdfText.replace(/\0/g, "").replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, " ");
+
   // ── 1. Contexts ───────────────────────────────────────────────────────
   await ensureContext(DONTOSRV_URL, { iri: TP_CONTEXT, kind: "source", mode: "permissive" });
   await ensureContext(DONTOSRV_URL, { iri: paperCtx, kind: "candidate", mode: "permissive", parent: TP_CONTEXT });
