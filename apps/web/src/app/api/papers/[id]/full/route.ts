@@ -58,30 +58,67 @@ async function fetchArtifacts(paperId: string) {
   }
 }
 
-async function fetchDontoData(paper: { id: string; doi?: string | null; arxivId?: string | null; title: string }) {
-  try {
-    // Build the paper IRI — use DOI if available, else arxiv, else title-based
-    const paperIri = paper.doi
-      ? `doi:${paper.doi}`
-      : paper.arxivId
-        ? `arxiv:${paper.arxivId}`
-        : `paper:${paper.id}`;
+async function fetchDontoData(
+  paper: { id: string; doi?: string | null; arxivId?: string | null; title: string },
+  paperClaims: { dontoSubjectIri: string | null }[],
+) {
+  const DONTOSRV_URL = process.env.DONTOSRV_URL ?? "http://localhost:7879";
 
-    const [history, contexts] = await Promise.all([
+  try {
+    const paperIri = `tp:paper:${paper.id}`;
+    const claimsCtx = `tp:paper:${paper.id}:claims`;
+
+    const [paperHistory, contexts, obligationSummary, openObligations, argumentsFrontier] = await Promise.all([
       getHistory(paperIri),
       getContexts(),
+      fetch(`${DONTOSRV_URL}/obligations/summary`, { headers: { accept: "application/json" } })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${DONTOSRV_URL}/obligations/open`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ context: claimsCtx, limit: 200 }),
+      }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${DONTOSRV_URL}/arguments/frontier`, { headers: { accept: "application/json" } })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
-    // Find the context entry matching this paper
     const paperContext = contexts?.contexts?.find(
-      (c) => c.context.includes(paper.id) || c.context.includes(paperIri),
+      (c: { context: string }) => c.context === claimsCtx,
     );
+
+    // Fetch per-claim Donto histories (all statements for each claim)
+    const claimIris = paperClaims
+      .map(c => c.dontoSubjectIri)
+      .filter((iri): iri is string => iri != null);
+
+    const claimHistories: Record<string, unknown> = {};
+    // Batch in groups of 10 to avoid overwhelming dontosrv
+    for (let i = 0; i < claimIris.length; i += 10) {
+      const batch = claimIris.slice(i, i + 10);
+      const results = await Promise.all(
+        batch.map(iri => getHistory(iri).catch(() => null)),
+      );
+      for (let j = 0; j < batch.length; j++) {
+        if (results[j]) claimHistories[batch[j]] = results[j];
+      }
+    }
 
     return {
       iri: paperIri,
       context: paperContext ?? null,
-      statementCount: history?.count ?? 0,
-      paperTriples: history?.rows ?? [],
+      statementCount: paperHistory?.count ?? 0,
+      paperTriples: paperHistory?.rows ?? [],
+      claimStatements: claimHistories,
+      totalClaimStatements: Object.values(claimHistories).reduce(
+        (sum, h: any) => sum + (h?.count ?? 0), 0,
+      ),
+      obligations: {
+        summary: obligationSummary?.summary ?? [],
+        open: openObligations?.obligations ?? [],
+      },
+      arguments: {
+        frontier: argumentsFrontier?.frontier ?? [],
+      },
     };
   } catch {
     return null;
@@ -189,9 +226,12 @@ export async function GET(
     // GCS artifacts (non-blocking)
     fetchArtifacts(id).catch(() => ({ source: "none" as const, files: [] })),
 
-    // Donto data (non-blocking)
-    fetchDontoData(paper).catch(() => null),
+    // Donto placeholder — fetched below after claims resolve
+    Promise.resolve(null),
   ]);
+
+  // Fetch full Donto data (needs claim IRIs from above)
+  const dontoFull = await fetchDontoData(paper, paperClaims).catch(() => null);
 
   // ── 3. Group simulations by claim ───────────────────────────────────────
   const simsByClaim = new Map<string, typeof allSimulations>();
@@ -303,7 +343,7 @@ export async function GET(
       truncated: !fullLogs && logCount > 50,
     },
     artifacts,
-    donto,
+    donto: dontoFull,
     stats,
   });
 }
