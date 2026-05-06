@@ -182,6 +182,10 @@ export async function POST(req: Request) {
         title: extraction.title || title,
         authors: (extraction.authors ?? []).filter(Boolean),
         abstract: extraction.abstract ?? null,
+        extractorModel: "openai/gpt-5.5",
+        extractorVersion: "2026-05",
+        parserVersion: fileType === "markdown" ? "markdown-raw" : "pdf-parse-1.1.1",
+        bodyCharCount: textForExtraction.length,
         updatedAt: new Date(),
       })
       .where(eq(papers.id, paper.id));
@@ -192,6 +196,11 @@ export async function POST(req: Request) {
       dontoSubjectIri: dontoResult.claimIris[i] ?? null,
       status: "asserted" as const,
       confidence: claim.confidence ?? null,
+      category: claim.category ?? "unknown",
+      predicate: claim.predicate ?? null,
+      value: claim.value ?? null,
+      unit: claim.unit ?? null,
+      evidence: claim.evidence ?? null,
     }));
 
     if (claimValues.length > 0) {
