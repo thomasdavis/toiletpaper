@@ -113,19 +113,22 @@ export async function ingestPaperIntoDonto(
 
   // ── 2. Document ───────────────────────────────────────────────────────
   const docRes = await registerDocument(DONTOSRV_URL, {
-    iri: paperIri, media_type: mediaType, label: extraction.title, language: "en",
+    iri: paperIri, media_type: mediaType, label: extraction.title || "Untitled", language: "en",
   });
+  if (!docRes?.document_id) throw new Error(`Document registration failed: ${JSON.stringify(docRes)}`);
 
   // ── 3. Revision ───────────────────────────────────────────────────────
   const revRes = await createRevision(DONTOSRV_URL, {
-    document_id: docRes.document_id, body: pdfText, parser_version: parserVersion,
+    document_id: docRes.document_id, body: pdfText || "", parser_version: parserVersion,
   });
+  if (!revRes?.revision_id) throw new Error(`Revision creation failed: ${JSON.stringify(revRes)}`);
 
   // ── 4. Agent ──────────────────────────────────────────────────────────
   const agentRes = await registerAgent(DONTOSRV_URL, {
     iri: "agent:anthropic-claude-sonnet-extractor", agent_type: "llm",
     label: "Anthropic Claude Sonnet 4.6 Extractor", model_id: "claude-sonnet-4-6",
   });
+  if (!agentRes?.agent_id) throw new Error(`Agent registration failed: ${JSON.stringify(agentRes)}`);
 
   // ── 5. Bind agent ─────────────────────────────────────────────────────
   await bindAgent(DONTOSRV_URL, {
@@ -136,8 +139,9 @@ export async function ingestPaperIntoDonto(
   const runId = await startExtraction({
     model: "claude-sonnet-4-6", version: "2026-05", revisionId: revRes.revision_id,
     context: paperCtx, temperature: 0.1, toolchain: "anthropic",
-    metadata: { paperId, contentHash },
+    metadata: { paperId, contentHash: contentHash || "" },
   });
+  if (!runId) throw new Error("startExtraction returned null/undefined");
 
   // ── 7. Assert paper metadata ──────────────────────────────────────────
   const metadataStmts: AssertInput[] = [
