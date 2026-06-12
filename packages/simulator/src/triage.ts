@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import type { TestableClaim } from "./schema";
+import { createSimulatorClient, simulatorModel } from "./provider";
 
 const TRIAGE_PROMPT = `You are a physics claim triage agent. Convert scientific claims into testable specifications.
 
@@ -40,7 +40,7 @@ export async function triageClaims(
   paperAbstract: string,
   apiKey: string,
 ): Promise<TestableClaim[]> {
-  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
+  const client = createSimulatorClient(apiKey);
 
   const testable = claims.filter(
     (c) => c.category !== "methodological" && c.confidence >= 0.3,
@@ -58,7 +58,7 @@ export async function triageClaims(
 
     try {
       const response = await client.chat.completions.create({
-        model: "x-ai/grok-4.1-fast",
+        model: simulatorModel(),
         messages: [
           { role: "system", content: TRIAGE_PROMPT },
           { role: "user", content: `Paper: ${paperAbstract.slice(0, 500)}\n\nClaims:\n${claimsText}` },

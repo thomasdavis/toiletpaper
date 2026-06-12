@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
@@ -19,6 +20,12 @@ const ACCEPTED_TYPES = new Set([
   "text/x-markdown",
   "application/octet-stream",
 ]);
+
+function hasExtractorProvider() {
+  if (process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY) return true;
+  const keyFile = process.env.LLM_API_KEY_FILE;
+  return Boolean(keyFile && existsSync(keyFile));
+}
 
 function inferType(name: string, mime: string): "pdf" | "markdown" | null {
   if (mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
@@ -82,8 +89,7 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
+  if (!hasExtractorProvider()) {
     await db
       .update(papers)
       .set({ status: "uploaded", updatedAt: new Date() })
@@ -102,10 +108,13 @@ export async function POST(req: Request) {
       textForExtraction = pdf.text;
     }
 
-    const { extractClaimsFromText } = await import(
+    const { extractClaimsFromText, extractorModel, extractorVersion } = await import(
       "@toiletpaper/extractor"
     );
-    const extraction = await extractClaimsFromText(textForExtraction, apiKey);
+    const extraction = await extractClaimsFromText(
+      textForExtraction,
+      process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
+    );
 
     // Mark the paper as "queued" for Donto ingest before we try.
     // Outcome (succeeded | failed) is recorded after the attempt.
@@ -182,8 +191,8 @@ export async function POST(req: Request) {
         title: extraction.title || title,
         authors: (extraction.authors ?? []).filter(Boolean),
         abstract: extraction.abstract ?? null,
-        extractorModel: "openai/gpt-5.5",
-        extractorVersion: "2026-05",
+        extractorModel: extractorModel(),
+        extractorVersion: extractorVersion(),
         parserVersion: fileType === "markdown" ? "markdown-raw" : "pdf-parse-1.1.1",
         bodyCharCount: textForExtraction.length,
         updatedAt: new Date(),

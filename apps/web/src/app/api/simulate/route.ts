@@ -4,6 +4,7 @@ import { papers, claims, simulations, routerDecisions, replicationUnits } from "
 import { eq } from "drizzle-orm";
 import { getHistory } from "@/lib/donto";
 import { DONTOSRV_URL } from "@toiletpaper/donto-client";
+import { hasSimulatorProvider } from "@toiletpaper/simulator";
 import {
   assertArgument,
   emitObligation,
@@ -141,10 +142,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "no claims extracted" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "OPENROUTER_API_KEY not set" }, { status: 500 });
+  if (!hasSimulatorProvider()) {
+    return NextResponse.json({ error: "simulator LLM provider not configured" }, { status: 500 });
   }
+  const apiKey = process.env.SIMULATOR_LLM_API_KEY ?? process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "";
 
   await db.update(papers).set({ status: "simulating", updatedAt: new Date() }).where(eq(papers.id, paper.id));
 

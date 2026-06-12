@@ -76,7 +76,7 @@ export default function UploadPage() {
               Extracting claims from paper...
             </Text>
             <Text size="xs" color="muted">
-              Parsing PDF, sending to GPT-4o, ingesting into donto
+              Parsing the paper, extracting claims, ingesting into donto
             </Text>
           </Stack>
         )}
@@ -99,7 +99,7 @@ export default function UploadPage() {
             onFiles={handleFiles}
             accept="application/pdf,.md,.markdown,text/markdown"
             label="Drag & drop a PDF or Markdown file"
-            hint="Claims extracted via GPT-4o and ingested into donto automatically"
+            hint="Claims are extracted and ingested into donto automatically"
             disabled={busy}
           />
         )}

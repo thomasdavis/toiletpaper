@@ -5,9 +5,9 @@
  * repeat calls (re-simulate, re-extract) don't re-bill the model.
  */
 
-import OpenAI from "openai";
 import { db } from "@/lib/db";
 import { papers } from "@toiletpaper/db";
+import { createSimulatorClient, simulatorModel } from "@toiletpaper/simulator";
 import { eq } from "drizzle-orm";
 
 export const PAPER_DOMAINS = [
@@ -69,7 +69,7 @@ export async function classifyPaperDomain(
   input: ClassifyInput,
   apiKey: string,
 ): Promise<ClassifyResult> {
-  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
+  const client = createSimulatorClient(apiKey);
   const sample = input.sampleClaims.slice(0, 12).map((s, i) => `  [${i + 1}] ${s}`).join("\n");
   const user = [
     `TITLE: ${input.title}`,
@@ -78,7 +78,7 @@ export async function classifyPaperDomain(
   ].filter(Boolean).join("");
 
   const completion = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-fast",
+    model: simulatorModel(),
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: user },

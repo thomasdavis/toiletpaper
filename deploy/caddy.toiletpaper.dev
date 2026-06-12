@@ -1,0 +1,6 @@
+toiletpaper.dev, www.toiletpaper.dev {
+    encode gzip zstd
+
+    # toiletpaper.dev — Next.js web app on the donto host.
+    reverse_proxy localhost:3110
+}

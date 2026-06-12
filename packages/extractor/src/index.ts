@@ -1,6 +1,8 @@
 export { extractTextFromPdf, type ParsedPdf } from "./pdf";
 export {
   extractClaimsFromText,
+  extractorModel,
+  extractorVersion,
   type ExtractedClaim,
   type ExtractionResult,
 } from "./llm";

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { readFileSync } from "node:fs";
 
 export interface ExtractedClaim {
   text: string;
@@ -24,6 +25,55 @@ export interface ExtractionResult {
   abstract: string;
   claims: ExtractedClaim[];
   relations: ClaimRelation[];
+}
+
+export function extractorModel() {
+  return process.env.LLM_MODEL ?? "openai/gpt-5.5";
+}
+
+export function extractorVersion() {
+  return process.env.LLM_MODEL_VERSION ?? "2026-06";
+}
+
+function extractorBaseUrl() {
+  return process.env.LLM_BASE_URL ?? "https://openrouter.ai/api/v1";
+}
+
+function extractorMaxTokens() {
+  return Number.parseInt(process.env.LLM_MAX_TOKENS ?? "4096", 10);
+}
+
+function resolveApiKey(apiKey?: string) {
+  if (process.env.LLM_API_KEY?.trim()) return process.env.LLM_API_KEY.trim();
+  if (process.env.LLM_API_KEY_FILE?.trim()) {
+    return readFileSync(process.env.LLM_API_KEY_FILE, "utf8").trim();
+  }
+  if (apiKey?.trim()) return apiKey.trim();
+  if (process.env.OPENROUTER_API_KEY?.trim()) {
+    return process.env.OPENROUTER_API_KEY.trim();
+  }
+  return "";
+}
+
+function parseJsonObject(content: string): unknown {
+  let text = content.trim();
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenced) text = fenced[1].trim();
+
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    text = text.slice(start, end + 1);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_e) {
+    const repaired = text
+      .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')
+      .replace(/,\s*([}\]])/g, "$1");
+    return JSON.parse(repaired);
+  }
 }
 
 const EXTRACTION_PROMPT = `You are a scientific paper claim extractor. Given the text of a scientific paper, extract:
@@ -64,36 +114,48 @@ Return valid JSON with this structure:
   "relations": [ { "from_index": 0, "to_index": 1, "relation": "supports", "strength": 0.9, "reason": "..." } ]
 }
 
-Focus on claims that are empirically testable or falsifiable. Extract ALL logical relationships between claims — a paper's argumentative structure is as important as its individual claims.`;
+Focus on claims that are empirically testable or falsifiable. Extract ALL logical relationships between claims — a paper's argumentative structure is as important as its individual claims.
+
+Return ONLY the JSON object. Do not include prose, markdown fences, commentary, or an explanation before or after the JSON.`;
 
 export async function extractClaimsFromText(
   text: string,
   apiKey: string,
 ): Promise<ExtractionResult> {
-  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
+  const resolvedApiKey = resolveApiKey(apiKey);
+  if (!resolvedApiKey) throw new Error("No extractor API key configured");
+
+  const client = new OpenAI({
+    apiKey: resolvedApiKey,
+    baseURL: extractorBaseUrl(),
+    defaultHeaders: {
+      "User-Agent": "toiletpaper/instance-deploy",
+    },
+  });
 
   const truncated = text.length > 100_000 ? text.slice(0, 100_000) : text;
 
   const response = await client.chat.completions.create({
-    model: "openai/gpt-5.5",
+    model: extractorModel(),
     messages: [
-      { role: "system", content: EXTRACTION_PROMPT },
+      { role: "system", content: `${EXTRACTION_PROMPT}\n\nYou must output strict JSON only.` },
       {
         role: "user",
-        content: `Extract all testable claims and their logical relationships from this paper:\n\n${truncated}`,
+        content: `Extract all testable claims and their logical relationships from this paper. Return only strict JSON matching the requested schema:\n\n${truncated}`,
       },
     ],
     response_format: { type: "json_object" },
     temperature: 0.1,
+    max_tokens: extractorMaxTokens(),
   });
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error("No response from model");
 
-  const parsed = JSON.parse(content) as ExtractionResult;
-  if (!parsed.relations) parsed.relations = [];
-  if (!parsed.claims) parsed.claims = [];
-  if (!parsed.authors) parsed.authors = [];
+  const parsed = parseJsonObject(content) as ExtractionResult;
+  if (!Array.isArray(parsed.relations)) parsed.relations = [];
+  if (!Array.isArray(parsed.claims)) parsed.claims = [];
+  if (!Array.isArray(parsed.authors)) parsed.authors = [];
   if (!parsed.title) parsed.title = "";
   if (!parsed.abstract) parsed.abstract = "";
   parsed.claims = parsed.claims.map((c) => ({
@@ -103,5 +165,10 @@ export async function extractClaimsFromText(
     confidence: c.confidence ?? 0.5,
     evidence: c.evidence ?? "",
   }));
+  parsed.relations = parsed.relations.filter((r) =>
+    Number.isInteger(r.from_index) &&
+    Number.isInteger(r.to_index) &&
+    ["supports", "rebuts", "qualifies", "derived_from"].includes(r.relation),
+  );
   return parsed;
 }

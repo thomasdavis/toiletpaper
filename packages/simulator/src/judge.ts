@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import type { TestableClaim, SimulationResult, ClaimVerdict, Verdict } from "./schema";
+import { createSimulatorClient, simulatorModel } from "./provider";
 
 const JUDGE_PROMPT = `You are a scientific judge evaluating whether a physics claim has been reproduced by simulation.
 
@@ -31,7 +31,7 @@ export async function judgeResult(
   result: SimulationResult,
   apiKey: string,
 ): Promise<ClaimVerdict> {
-  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
+  const client = createSimulatorClient(apiKey);
 
   const summary = {
     claim: claim.statement,
@@ -53,7 +53,7 @@ export async function judgeResult(
   };
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-fast",
+    model: simulatorModel(),
     messages: [
       { role: "system", content: JUDGE_PROMPT },
       { role: "user", content: JSON.stringify(summary, null, 2) },

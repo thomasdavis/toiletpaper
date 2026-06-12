@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { basename, join } from "node:path";
 import { db } from "@/lib/db";
 import { papers, claims } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
+import { parseGs, getObject } from "@/lib/storage";
+
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), "uploads");
+
+function hasExtractorProvider() {
+  if (process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY) return true;
+  const keyFile = process.env.LLM_API_KEY_FILE;
+  return Boolean(keyFile && existsSync(keyFile));
+}
 
 export async function POST(req: Request) {
   const body = (await req.json()) as { paper_id: string };
@@ -30,20 +40,30 @@ export async function POST(req: Request) {
     .where(eq(papers.id, paper.id));
 
   try {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+    if (!hasExtractorProvider()) throw new Error("extractor provider not configured");
+    const apiKey = process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "";
 
-    let pdfBuffer: Buffer | null = null;
+    let sourceBuffer: Buffer | null = null;
+    let sourceName = "";
     if (paper.pdfUrl) {
-      const localPath = join(process.cwd(), paper.pdfUrl.replace(/^\//, ""));
       try {
-        pdfBuffer = await readFile(localPath);
+        if (paper.pdfUrl.startsWith("gs://")) {
+          const gs = parseGs(paper.pdfUrl);
+          sourceBuffer = await getObject(gs.bucket, gs.key);
+          sourceName = gs.key;
+        } else if (paper.pdfUrl.startsWith("/uploads/")) {
+          sourceName = basename(paper.pdfUrl);
+          sourceBuffer = await readFile(join(UPLOADS_DIR, sourceName));
+        } else {
+          sourceName = paper.pdfUrl.replace(/^\//, "");
+          sourceBuffer = await readFile(join(process.cwd(), sourceName));
+        }
       } catch {
-        // file might not exist locally
+        // source might no longer exist; fall through to metadata-only extraction.
       }
     }
 
-    if (!pdfBuffer) {
+    if (!sourceBuffer) {
       // No PDF available — fall back to metadata-only extraction
       const { ensurePaperContext, assertPaperMetadata } = await import(
         "@toiletpaper/donto-client/papers"
@@ -76,8 +96,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ claims: inserted });
     }
 
-    const { extractPaper } = await import("@toiletpaper/extractor");
-    const result = await extractPaper(pdfBuffer, paper.id, apiKey);
+    const isPdf = sourceName.toLowerCase().endsWith(".pdf");
+    const {
+      extractPaper,
+      extractClaimsFromText,
+      ingestPaperIntoDonto,
+      extractorModel,
+      extractorVersion,
+    } = await import("@toiletpaper/extractor");
+    let result: Awaited<ReturnType<typeof extractPaper>>;
+    if (isPdf) {
+      result = await extractPaper(sourceBuffer, paper.id, apiKey);
+    } else {
+      const text = sourceBuffer.toString("utf-8");
+      const extraction = await extractClaimsFromText(text, apiKey);
+      const donto = await ingestPaperIntoDonto(
+        paper.id,
+        text,
+        "",
+        extraction,
+        "text/markdown",
+      );
+      result = {
+        pdf: { text, contentHash: "", pages: 0 },
+        extraction,
+        donto,
+      };
+    }
 
     // Update paper metadata from extraction
     await db
@@ -89,6 +134,10 @@ export async function POST(req: Request) {
             ? result.extraction.authors
             : paper.authors,
         abstract: result.extraction.abstract || paper.abstract,
+        extractorModel: extractorModel(),
+        extractorVersion: extractorVersion(),
+        parserVersion: isPdf ? "pdf-parse-1.1.1" : "markdown-raw",
+        bodyCharCount: result.pdf.text.length,
         updatedAt: new Date(),
       })
       .where(eq(papers.id, paper.id));
@@ -100,6 +149,11 @@ export async function POST(req: Request) {
       dontoSubjectIri: result.donto.claimIris[i] ?? null,
       status: "asserted" as const,
       confidence: claim.confidence,
+      category: claim.category ?? "unknown",
+      predicate: claim.predicate ?? null,
+      value: claim.value ?? null,
+      unit: claim.unit ?? null,
+      evidence: claim.evidence ?? null,
     }));
 
     let inserted: (typeof claims.$inferSelect)[] = [];

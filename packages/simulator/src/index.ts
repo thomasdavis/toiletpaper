@@ -12,6 +12,12 @@ export type {
 } from "./schema";
 
 export { triageClaims } from "./triage";
+export {
+  createSimulatorClient,
+  hasSimulatorProvider,
+  simulatorBaseUrl,
+  simulatorModel,
+} from "./provider";
 export { runTier1, checkDimensions, checkScalingLaw } from "./algebraic";
 export { generateSimulationCode, buildSimulationPlan } from "./codegen";
 export { runSimulation } from "./runner";

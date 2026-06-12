@@ -25,6 +25,7 @@ import {
   recordVerification,
 } from "./donto-pg";
 import type { ExtractionResult, ExtractedClaim, ClaimRelation } from "./llm";
+import { extractorModel, extractorVersion } from "./llm";
 
 const TP_CONTEXT = "tp:papers";
 
@@ -106,6 +107,10 @@ export async function ingestPaperIntoDonto(
   const paperIri = `tp:paper:${paperId}`;
   const paperCtx = `tp:paper:${paperId}:claims`;
   const parserVersion = mediaType === "text/markdown" ? "markdown-raw" : "pdf-parse-1.1.1";
+  const model = extractorModel();
+  const version = extractorVersion();
+  const toolchain = process.env.LLM_BASE_URL ? "openai-compatible" : "openrouter";
+  const agentIri = `agent:toiletpaper-extractor/${model.replace(/[^a-zA-Z0-9._:-]+/g, "-")}`;
 
   // Sanitize text for Postgres — strip null bytes and control chars
   pdfText = pdfText.replace(/\0/g, "").replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, " ");
@@ -128,8 +133,8 @@ export async function ingestPaperIntoDonto(
 
   // ── 4. Agent ──────────────────────────────────────────────────────────
   const agentRes = await registerAgent(DONTOSRV_URL, {
-    iri: "agent:anthropic-claude-sonnet-extractor", agent_type: "llm",
-    label: "Anthropic Claude Sonnet 4.6 Extractor", model_id: "claude-sonnet-4-6",
+    iri: agentIri, agent_type: "llm",
+    label: `${model} Extractor`, model_id: model,
   });
   if (!agentRes?.agent_id) throw new Error(`Agent registration failed: ${JSON.stringify(agentRes)}`);
 
@@ -140,8 +145,8 @@ export async function ingestPaperIntoDonto(
 
   // ── 6. Start extraction run ───────────────────────────────────────────
   const runId = await startExtraction({
-    model: "claude-sonnet-4-6", version: "2026-05", revisionId: revRes.revision_id,
-    context: paperCtx, temperature: 0.1, toolchain: "anthropic",
+    model, version, revisionId: revRes.revision_id,
+    context: paperCtx, temperature: 0.1, toolchain,
     metadata: { paperId, contentHash: contentHash || "" },
   });
   if (!runId) throw new Error("startExtraction returned null/undefined");

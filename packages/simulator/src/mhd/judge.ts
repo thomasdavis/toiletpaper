@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { createSimulatorClient, simulatorModel } from "../provider";
 
 export interface MhdVerdict {
   claim: string;
@@ -158,10 +158,10 @@ export async function addLlmAnalysis(
   rawData: string,
   apiKey: string,
 ): Promise<MhdVerdict> {
-  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
+  const client = createSimulatorClient(apiKey);
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-fast",
+    model: simulatorModel(),
     messages: [
       {
         role: "system",

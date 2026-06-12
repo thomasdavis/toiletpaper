@@ -3,8 +3,12 @@ import { db } from "@/lib/db";
 import { papers } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { parseGs, getObject } from "@/lib/storage";
+import { readFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 
 export const dynamic = "force-dynamic";
+
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(process.cwd(), "uploads");
 
 /**
  * GET /api/papers/{id}/source
@@ -12,9 +16,9 @@ export const dynamic = "force-dynamic";
  * Streams the source PDF/markdown back to the caller.
  *
  * For GCS-backed paper rows we authenticate via the metadata server
- * (server-side, no public bucket needed). For legacy local-disk URLs
- * we 404, since those files were on a previous Cloud Run revision and
- * are no longer available.
+ * (server-side, no public bucket needed). For instance-local rows we
+ * resolve /uploads/<file> against UPLOADS_DIR, which is persistent on
+ * the donto host.
  */
 export async function GET(
   _req: Request,
@@ -28,17 +32,23 @@ export async function GET(
     return NextResponse.json({ error: "no source attached" }, { status: 404 });
   }
 
-  const gs = parseGs(paper.pdfUrl);
-  if (!gs) {
-    return NextResponse.json(
-      { error: "source no longer available (legacy ephemeral path)" },
-      { status: 410 },
-    );
-  }
-
   let buf: Buffer;
+  let ext: string;
   try {
-    buf = await getObject(gs.bucket, gs.key);
+    if (paper.pdfUrl.startsWith("gs://")) {
+      const gs = parseGs(paper.pdfUrl);
+      buf = await getObject(gs.bucket, gs.key);
+      ext = (gs.key.split(".").pop() ?? "pdf").toLowerCase();
+    } else if (paper.pdfUrl.startsWith("/uploads/")) {
+      const filename = basename(paper.pdfUrl);
+      buf = await readFile(join(UPLOADS_DIR, filename));
+      ext = (filename.split(".").pop() ?? "pdf").toLowerCase();
+    } else {
+      return NextResponse.json(
+        { error: "unsupported source location" },
+        { status: 410 },
+      );
+    }
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "fetch failed" },
@@ -46,7 +56,6 @@ export async function GET(
     );
   }
 
-  const ext = (gs.key.split(".").pop() ?? "pdf").toLowerCase();
   const contentType =
     ext === "pdf" ? "application/pdf"
       : ext === "md" || ext === "markdown" ? "text/markdown; charset=utf-8"

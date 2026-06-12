@@ -1,0 +1,17 @@
+[Unit]
+Description=toiletpaper.dev (Next.js reproducibility engine)
+After=network.target dontosrv.service docker.service
+Wants=dontosrv.service
+
+[Service]
+Type=simple
+User=ajax
+WorkingDirectory=/mnt/donto-data/workspace/toiletpaper/apps/web
+EnvironmentFile=/etc/toiletpaper-web.env
+Environment=PORT=3110
+ExecStart=/usr/bin/node /mnt/donto-data/workspace/toiletpaper/apps/web/.next/standalone/apps/web/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

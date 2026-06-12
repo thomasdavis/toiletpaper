@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import type { TestableClaim, SimulationPlan, ParameterSweep } from "./schema";
+import { createSimulatorClient, simulatorModel } from "./provider";
 
 const CODEGEN_PROMPT = `You are a computational physics agent. Given a testable scientific claim, generate Python simulation code to test it.
 
@@ -53,12 +53,12 @@ export async function generateSimulationCode(
   claim: TestableClaim,
   apiKey: string,
 ): Promise<{ baselineCode: string; proposedCode: string; combinedCode: string }> {
-  const client = new OpenAI({ apiKey, baseURL: "https://openrouter.ai/api/v1" });
+  const client = createSimulatorClient(apiKey);
 
   const claimSpec = JSON.stringify(claim, null, 2);
 
   const response = await client.chat.completions.create({
-    model: "x-ai/grok-4.1-fast",
+    model: simulatorModel(),
     max_tokens: 8192,
     messages: [
       { role: "system", content: CODEGEN_PROMPT },
