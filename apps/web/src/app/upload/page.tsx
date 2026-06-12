@@ -12,7 +12,7 @@ import {
   Alert,
 } from "@toiletpaper/ui";
 
-type UploadState = "idle" | "uploading" | "extracting" | "done" | "error";
+type UploadState = "idle" | "uploading" | "done" | "error";
 
 export default function UploadPage() {
   const router = useRouter();
@@ -27,10 +27,10 @@ export default function UploadPage() {
         const form = new FormData();
         form.append("file", file);
 
-        setState("extracting");
         const res = await fetch("/api/upload", { method: "POST", body: form });
         const body = (await res.json()) as {
           id: string;
+          url?: string;
           claims?: number;
           error?: string;
         };
@@ -45,7 +45,7 @@ export default function UploadPage() {
           setError(body.error);
         }
 
-        router.push(`/papers/${body.id}`);
+        router.push(body.url ?? `/papers/${body.id}`);
       } catch (e) {
         setState("error");
         setError(e instanceof Error ? e.message : "Upload failed");
@@ -62,35 +62,23 @@ export default function UploadPage() {
     [upload],
   );
 
-  const busy = state === "uploading" || state === "extracting";
+  const busy = state === "uploading";
 
   return (
     <Container size="md">
       <Stack gap={6}>
         <Heading level={2}>Upload a paper</Heading>
 
-        {state === "extracting" && (
-          <Stack gap={2} align="center">
-            <Spinner size="lg" />
-            <Text size="sm" weight="medium" color="primary">
-              Extracting claims from paper...
-            </Text>
-            <Text size="xs" color="muted">
-              Parsing the paper, extracting claims, ingesting into donto
-            </Text>
-          </Stack>
-        )}
-
         {state === "uploading" && (
           <Stack gap={2} align="center">
             <Spinner size="lg" />
-            <Text size="sm" color="primary">Uploading PDF...</Text>
+            <Text size="sm" color="primary">Creating paper URL...</Text>
           </Stack>
         )}
 
         {state === "done" && (
           <Alert variant="success">
-            Done! Redirecting to paper...
+            Opening paper...
           </Alert>
         )}
 

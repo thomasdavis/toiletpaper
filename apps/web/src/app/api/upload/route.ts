@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { papers, claims, paperDontoIngest } from "@toiletpaper/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { putObject } from "@/lib/storage";
 
 // Cloud Run filesystem is read-only except for /tmp; allow override via env.
@@ -37,6 +37,176 @@ function inferType(name: string, mime: string): "pdf" | "markdown" | null {
     return "markdown";
   if (mime === "text/plain") return "markdown";
   return null;
+}
+
+async function processPaperExtraction(input: {
+  paperId: string;
+  title: string;
+  fileType: "pdf" | "markdown";
+  buffer: Buffer;
+}) {
+  const { paperId, title, fileType, buffer } = input;
+
+  try {
+    let textForExtraction: string;
+
+    if (fileType === "markdown") {
+      textForExtraction = buffer.toString("utf-8");
+    } else {
+      const { extractTextFromPdf } = await import("@toiletpaper/extractor");
+      const pdf = await extractTextFromPdf(buffer);
+      textForExtraction = pdf.text;
+    }
+
+    const { extractClaimsFromText, extractorModel, extractorVersion } = await import(
+      "@toiletpaper/extractor"
+    );
+    const extraction = await extractClaimsFromText(
+      textForExtraction,
+      process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
+    );
+
+    await db
+      .insert(paperDontoIngest)
+      .values({
+        paperId,
+        state: "running",
+        attempts: 1,
+        lastAttemptAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: paperDontoIngest.paperId,
+        set: {
+          state: "running",
+          attempts: sql`${paperDontoIngest.attempts} + 1`,
+          lastAttemptAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+    const { ingestPaperIntoDonto } = await import("@toiletpaper/extractor");
+    let dontoResult;
+    try {
+      dontoResult = await ingestPaperIntoDonto(
+        paperId,
+        textForExtraction,
+        "",
+        extraction,
+        fileType === "markdown" ? "text/markdown" : "application/pdf",
+      );
+      await db
+        .update(paperDontoIngest)
+        .set({
+          state: "succeeded",
+          documentId: dontoResult.documentId || null,
+          revisionId: dontoResult.revisionId || null,
+          agentId: dontoResult.agentId || null,
+          runId: dontoResult.runId || null,
+          statementCount: dontoResult.statementCount ?? 0,
+          spanCount: dontoResult.spanCount ?? 0,
+          evidenceLinkCount: dontoResult.evidenceLinkCount ?? 0,
+          argumentCount: dontoResult.argumentCount ?? 0,
+          certifiedCount: dontoResult.certifiedCount ?? 0,
+          shapeCheckCount: dontoResult.shapeChecks ?? 0,
+          obligationIds: dontoResult.obligationIds ?? [],
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(paperDontoIngest.paperId, paperId));
+    } catch (dontoErr) {
+      const msg = dontoErr instanceof Error ? dontoErr.message : String(dontoErr);
+      console.error("Donto ingestion failed (continuing without):", msg);
+      const codeMatch = msg.match(/(\/[a-z]+\/[a-z]+):? (\d{3})/i);
+      const code = codeMatch
+        ? `${codeMatch[1].replace(/^\//, "").replace(/\//g, "-")}-${codeMatch[2]}`
+        : "ingest-failed";
+      await db
+        .update(paperDontoIngest)
+        .set({
+          state: "failed",
+          lastErrorCode: code,
+          lastErrorMessage: msg.slice(0, 1000),
+          updatedAt: new Date(),
+        })
+        .where(eq(paperDontoIngest.paperId, paperId));
+      dontoResult = {
+        claimIris: extraction.claims.map(() => null),
+        statementCount: 0,
+        documentId: "",
+        revisionId: "",
+        agentId: "",
+        runId: "",
+        obligationIds: [],
+        spanCount: 0,
+        evidenceLinkCount: 0,
+        argumentCount: 0,
+        certifiedCount: 0,
+        shapeChecks: 0,
+      };
+    }
+
+    await db
+      .update(papers)
+      .set({
+        title: extraction.title || title,
+        authors: (extraction.authors ?? []).filter(Boolean),
+        abstract: extraction.abstract ?? null,
+        extractorModel: extractorModel(),
+        extractorVersion: extractorVersion(),
+        parserVersion: fileType === "markdown" ? "markdown-raw" : "pdf-parse-1.1.1",
+        bodyCharCount: textForExtraction.length,
+        updatedAt: new Date(),
+      })
+      .where(eq(papers.id, paperId));
+
+    const claimValues = extraction.claims.map((claim, i) => ({
+      paperId,
+      text: claim.text ?? "",
+      dontoSubjectIri: dontoResult.claimIris[i] ?? null,
+      status: "asserted" as const,
+      confidence: claim.confidence ?? null,
+      category: claim.category ?? "unknown",
+      predicate: claim.predicate ?? null,
+      value: claim.value ?? null,
+      unit: claim.unit ?? null,
+      evidence: claim.evidence ?? null,
+    }));
+
+    if (claimValues.length > 0) {
+      await db.insert(claims).values(claimValues);
+    }
+
+    await db
+      .update(papers)
+      .set({ status: "extracted", updatedAt: new Date() })
+      .where(eq(papers.id, paperId));
+  } catch (e) {
+    console.error("Extraction failed:", e);
+    await db
+      .update(papers)
+      .set({ status: "error", updatedAt: new Date() })
+      .where(eq(papers.id, paperId));
+    await db
+      .insert(paperDontoIngest)
+      .values({
+        paperId,
+        state: "failed",
+        attempts: 1,
+        lastAttemptAt: new Date(),
+        lastErrorCode: "extraction-failed",
+        lastErrorMessage: (e instanceof Error ? e.message : String(e)).slice(0, 1000),
+      })
+      .onConflictDoUpdate({
+        target: paperDontoIngest.paperId,
+        set: {
+          state: "failed",
+          lastErrorCode: "extraction-failed",
+          lastErrorMessage: (e instanceof Error ? e.message : String(e)).slice(0, 1000),
+          updatedAt: new Date(),
+        },
+      });
+  }
 }
 
 export async function POST(req: Request) {
@@ -94,157 +264,30 @@ export async function POST(req: Request) {
       .update(papers)
       .set({ status: "uploaded", updatedAt: new Date() })
       .where(eq(papers.id, paper.id));
-    return NextResponse.json({ id: paper.id }, { status: 201 });
+    return NextResponse.json(
+      { id: paper.id, url: `/papers/${paper.id}`, status: "uploaded" },
+      { status: 201 },
+    );
   }
 
-  try {
-    let textForExtraction: string;
-
-    if (fileType === "markdown") {
-      textForExtraction = buffer.toString("utf-8");
-    } else {
-      const { extractTextFromPdf } = await import("@toiletpaper/extractor");
-      const pdf = await extractTextFromPdf(buffer);
-      textForExtraction = pdf.text;
-    }
-
-    const { extractClaimsFromText, extractorModel, extractorVersion } = await import(
-      "@toiletpaper/extractor"
-    );
-    const extraction = await extractClaimsFromText(
-      textForExtraction,
-      process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
-    );
-
-    // Mark the paper as "queued" for Donto ingest before we try.
-    // Outcome (succeeded | failed) is recorded after the attempt.
-    await db
-      .insert(paperDontoIngest)
-      .values({
-        paperId: paper.id,
-        state: "running",
-        attempts: 1,
-        lastAttemptAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: paperDontoIngest.paperId,
-        set: {
-          state: "running",
-          lastAttemptAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-
-    const { ingestPaperIntoDonto } = await import("@toiletpaper/extractor");
-    let dontoResult;
-    try {
-      dontoResult = await ingestPaperIntoDonto(
-        paper.id,
-        textForExtraction,
-        "",
-        extraction,
-        fileType === "markdown" ? "text/markdown" : "application/pdf",
-      );
-      await db
-        .update(paperDontoIngest)
-        .set({
-          state: "succeeded",
-          documentId: dontoResult.documentId || null,
-          revisionId: dontoResult.revisionId || null,
-          agentId: dontoResult.agentId || null,
-          runId: dontoResult.runId || null,
-          statementCount: dontoResult.statementCount ?? 0,
-          spanCount: dontoResult.spanCount ?? 0,
-          evidenceLinkCount: dontoResult.evidenceLinkCount ?? 0,
-          argumentCount: dontoResult.argumentCount ?? 0,
-          certifiedCount: dontoResult.certifiedCount ?? 0,
-          shapeCheckCount: dontoResult.shapeChecks ?? 0,
-          obligationIds: dontoResult.obligationIds ?? [],
-          lastErrorCode: null,
-          lastErrorMessage: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(paperDontoIngest.paperId, paper.id));
-    } catch (dontoErr) {
-      const msg = dontoErr instanceof Error ? dontoErr.message : String(dontoErr);
-      console.error("Donto ingestion failed (continuing without):", msg);
-      // Try to extract a useful machine code, e.g. "agents-bind-422".
-      const codeMatch = msg.match(/(\/[a-z]+\/[a-z]+):? (\d{3})/i);
-      const code = codeMatch
-        ? `${codeMatch[1].replace(/^\//, "").replace(/\//g, "-")}-${codeMatch[2]}`
-        : "ingest-failed";
-      await db
-        .update(paperDontoIngest)
-        .set({
-          state: "failed",
-          lastErrorCode: code,
-          lastErrorMessage: msg.slice(0, 1000),
-          updatedAt: new Date(),
-        })
-        .where(eq(paperDontoIngest.paperId, paper.id));
-      dontoResult = { claimIris: extraction.claims.map(() => null), statementCount: 0, documentId: "", revisionId: "", agentId: "", runId: "", obligationIds: [], spanCount: 0, evidenceLinkCount: 0, argumentCount: 0, certifiedCount: 0, shapeChecks: 0 };
-    }
-
-    await db
-      .update(papers)
-      .set({
-        title: extraction.title || title,
-        authors: (extraction.authors ?? []).filter(Boolean),
-        abstract: extraction.abstract ?? null,
-        extractorModel: extractorModel(),
-        extractorVersion: extractorVersion(),
-        parserVersion: fileType === "markdown" ? "markdown-raw" : "pdf-parse-1.1.1",
-        bodyCharCount: textForExtraction.length,
-        updatedAt: new Date(),
-      })
-      .where(eq(papers.id, paper.id));
-
-    const claimValues = extraction.claims.map((claim, i) => ({
+  await db
+    .insert(paperDontoIngest)
+    .values({
       paperId: paper.id,
-      text: claim.text ?? "",
-      dontoSubjectIri: dontoResult.claimIris[i] ?? null,
-      status: "asserted" as const,
-      confidence: claim.confidence ?? null,
-      category: claim.category ?? "unknown",
-      predicate: claim.predicate ?? null,
-      value: claim.value ?? null,
-      unit: claim.unit ?? null,
-      evidence: claim.evidence ?? null,
-    }));
+      state: "queued",
+      attempts: 0,
+    })
+    .onConflictDoNothing();
 
-    if (claimValues.length > 0) {
-      await db.insert(claims).values(claimValues);
-    }
+  void processPaperExtraction({
+    paperId: paper.id,
+    title,
+    fileType,
+    buffer,
+  });
 
-    await db
-      .update(papers)
-      .set({ status: "extracted", updatedAt: new Date() })
-      .where(eq(papers.id, paper.id));
-
-    return NextResponse.json(
-      {
-        id: paper.id,
-        claims: claimValues.length,
-        donto: {
-          documentId: dontoResult.documentId,
-          statementCount: dontoResult.statementCount,
-        },
-      },
-      { status: 201 },
-    );
-  } catch (e) {
-    console.error("Extraction failed:", e);
-    await db
-      .update(papers)
-      .set({ status: "error", updatedAt: new Date() })
-      .where(eq(papers.id, paper.id));
-
-    return NextResponse.json(
-      {
-        id: paper.id,
-        error: e instanceof Error ? e.message : "Extraction failed",
-      },
-      { status: 201 },
-    );
-  }
+  return NextResponse.json(
+    { id: paper.id, url: `/papers/${paper.id}`, status: "extracting" },
+    { status: 201 },
+  );
 }

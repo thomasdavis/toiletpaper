@@ -26,6 +26,7 @@ import { PaperWorkspace } from "@/components/paper-workspace";
 import { SessionLogPanel } from "@/components/session-log-panel";
 import type { SerializedClaim, SerializedSimulation } from "@/components/claim-drawer";
 import { BlueprintPanel } from "@/components/blueprint-panel";
+import { PaperProcessingPanel } from "@/components/paper-processing-panel";
 
 export async function generateMetadata({
   params,
@@ -172,6 +173,16 @@ export default async function PaperDetailPage({
           <Text size="sm" color="light" className="mt-2 line-clamp-2">{paper.abstract}</Text>
         )}
       </header>
+
+      <PaperProcessingPanel
+        paperId={id}
+        status={paper.status}
+        claimCount={paperClaims.length}
+        simulationCount={sims.length}
+        ingestState={ingestRow?.state}
+        statementCount={ingestRow?.statementCount}
+        lastErrorCode={ingestRow?.lastErrorCode}
+      />
 
 
       {(paper.status === "simulating" || paper.status === "extracted") && (
