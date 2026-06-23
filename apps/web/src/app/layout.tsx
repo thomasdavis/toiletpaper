@@ -4,6 +4,7 @@ import Link from "next/link";
 import { DebugProvider } from "@/components/debug-provider";
 import { DebugToggle } from "@/components/debug-toggle";
 import { Footer } from "@/components/brand";
+import { Analytics } from "@/components/analytics";
 import { db } from "@/lib/db";
 import { papers } from "@toiletpaper/db";
 import { count } from "drizzle-orm";
@@ -119,6 +120,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
           <Footer papersAnalyzed={papersAnalyzed} />
         </DebugProvider>
+        <Analytics />
       </body>
     </html>
   );
