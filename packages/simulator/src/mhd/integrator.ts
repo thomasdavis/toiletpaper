@@ -1,17 +1,14 @@
-import { type Grid, totalX, totalY } from "./grid";
+import { totalX, totalY } from "./grid";
 import {
   type MhdState,
   NVAR,
   RHO,
   MX,
   MY,
-  MZ,
   BX,
   BY,
   BZ,
-  EN,
   getVar,
-  setVar,
   cloneState,
   fastMagnetosonicSpeed,
 } from "./state";

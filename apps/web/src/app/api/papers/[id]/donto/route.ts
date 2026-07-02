@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getDontoEvidenceCoverage } from "@/lib/donto-coverage";
 
 const DONTOSRV_URL = env.DONTOSRV_URL || "http://localhost:7879";
+
+interface PaperHistoryResponse {
+  subject: string;
+  count: number;
+  rows: Array<{
+    statement_id: string;
+    predicate: string;
+    object_iri?: string | null;
+    object_lit?: { v: unknown; dt: string } | null;
+    context: string;
+  }>;
+}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
@@ -32,20 +45,15 @@ export async function GET(
   const claimsCtx = `tp:paper:${id}:claims`;
 
   if (section === "evidence") {
-    const history = await fetchJson<{
-      subject: string;
-      count: number;
-      rows: Array<{
-        statement_id: string;
-        predicate: string;
-        object_iri?: string | null;
-        object_lit?: { v: unknown; dt: string } | null;
-        context: string;
-      }>;
-    }>(`${DONTOSRV_URL}/history/${encodeURIComponent(paperIri)}`);
+    const [history, coverage] = await Promise.all([
+      fetchJson<PaperHistoryResponse>(
+        `${DONTOSRV_URL}/history/${encodeURIComponent(paperIri)}`,
+      ),
+      getDontoEvidenceCoverage(id).catch(() => null),
+    ]);
 
     if (!history) {
-      return NextResponse.json({ evidence: null });
+      return NextResponse.json({ evidence: null, coverage });
     }
 
     // Extract extraction run metadata from history triples
@@ -70,6 +78,7 @@ export async function GET(
         title: title ?? null,
         docType: docType ?? null,
         predicates: [...new Set(triples.map((r) => r.predicate))],
+        coverage,
       },
     });
   }

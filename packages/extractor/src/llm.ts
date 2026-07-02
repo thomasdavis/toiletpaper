@@ -43,6 +43,54 @@ function extractorMaxTokens() {
   return Number.parseInt(process.env.LLM_MAX_TOKENS ?? "4096", 10);
 }
 
+function extractorRetryAttempts() {
+  return Number.parseInt(process.env.LLM_RETRY_ATTEMPTS ?? "3", 10);
+}
+
+function extractorRetryBaseMs() {
+  return Number.parseInt(process.env.LLM_RETRY_BASE_MS ?? "15000", 10);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function headerValue(headers: unknown, name: string): string | null {
+  if (!headers) return null;
+  if (typeof (headers as { get?: unknown }).get === "function") {
+    return String((headers as { get(name: string): unknown }).get(name) ?? "") || null;
+  }
+  const value = (headers as Record<string, unknown>)[name] ??
+    (headers as Record<string, unknown>)[name.toLowerCase()];
+  return value == null ? null : String(value);
+}
+
+function retryDelayMs(error: unknown, attempt: number): number {
+  const retryAfter = headerValue((error as { headers?: unknown })?.headers, "retry-after");
+  if (retryAfter) {
+    const seconds = Number.parseFloat(retryAfter);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.ceil(seconds * 1000);
+    }
+  }
+  return extractorRetryBaseMs() * Math.max(1, attempt);
+}
+
+function isRetryableExtractorError(error: unknown): boolean {
+  const status = (error as { status?: number })?.status;
+  const code = (error as { code?: string | number })?.code;
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    code === "429" ||
+    /rate limit|temporarily unavailable|timeout/i.test(message)
+  );
+}
+
 function resolveApiKey(apiKey?: string) {
   if (process.env.LLM_API_KEY?.trim()) return process.env.LLM_API_KEY.trim();
   if (process.env.LLM_API_KEY_FILE?.trim()) {
@@ -135,21 +183,36 @@ export async function extractClaimsFromText(
 
   const truncated = text.length > 100_000 ? text.slice(0, 100_000) : text;
 
-  const response = await client.chat.completions.create({
-    model: extractorModel(),
-    messages: [
-      { role: "system", content: `${EXTRACTION_PROMPT}\n\nYou must output strict JSON only.` },
-      {
-        role: "user",
-        content: `Extract all testable claims and their logical relationships from this paper. Return only strict JSON matching the requested schema:\n\n${truncated}`,
-      },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.1,
-    max_tokens: extractorMaxTokens(),
-  });
+  let response;
+  const attempts = Math.max(1, extractorRetryAttempts());
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      response = await client.chat.completions.create({
+        model: extractorModel(),
+        messages: [
+          { role: "system", content: `${EXTRACTION_PROMPT}\n\nYou must output strict JSON only.` },
+          {
+            role: "user",
+            content: `Extract all testable claims and their logical relationships from this paper. Return only strict JSON matching the requested schema:\n\n${truncated}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+        max_tokens: extractorMaxTokens(),
+      });
+      break;
+    } catch (error) {
+      if (attempt >= attempts || !isRetryableExtractorError(error)) throw error;
+      const delay = retryDelayMs(error, attempt);
+      console.warn(
+        `Claim extractor request failed; retrying in ${Math.round(delay / 1000)}s (${attempt}/${attempts})`,
+        error instanceof Error ? error.message : String(error),
+      );
+      await sleep(delay);
+    }
+  }
 
-  const content = response.choices[0]?.message?.content;
+  const content = response?.choices[0]?.message?.content;
   if (!content) throw new Error("No response from model");
 
   const parsed = parseJsonObject(content) as ExtractionResult;

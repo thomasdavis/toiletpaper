@@ -158,30 +158,142 @@ const ML_REPLICATION_PREDICATES = new Set([
   "ml:parameterCount",
 ]);
 
+const BIBLIOGRAPHIC_PREDICATES = new Set([
+  "affiliatedwith",
+  "aliasof",
+  "authorof",
+  "citation",
+  "citationlabel",
+  "contributed",
+  "contributedrole",
+  "editorof",
+  "fundedby",
+  "fundedvia",
+  "grantedby",
+  "gratefulto",
+  "hasarticleNumber".toLowerCase(),
+  "hasauthor",
+  "hasdoi",
+  "haseditor",
+  "hasemail",
+  "haskeyword",
+  "hasorcid",
+  "haspagerange",
+  "haspages",
+  "haspublicationdate",
+  "haspublicationyear",
+  "haspublisher",
+  "hastitle",
+  "hasvolume",
+  "iscorrespondingauthor",
+  "partof",
+  "providedby",
+  "published",
+  "publishedby",
+  "publishedin",
+  "rdf:type",
+  "rdfs:label",
+  "reportedIn".toLowerCase(),
+  "schema:author",
+  "schema:description",
+  "schema:name",
+]);
+
+const INTERNAL_METADATA_PREDICATES = new Set([
+  "tp:category",
+  "tp:confidence",
+  "tp:evidence",
+  "tp:expectedvalue",
+  "tp:extractedfrom",
+  "tp:measuredvalue",
+  "tp:predicate",
+  "tp:simulationverdict",
+  "tp:unit",
+  "tp:value",
+  "tp:verdictreason",
+]);
+
+const EXACT_PREDICATE_ALIASES: Record<string, ReplicationUnitType> = {
+  "ml:score": "metric_recompute",
+  "ml:benchmark": "baseline_contrast",
+  "ml:evaluationsetting": "dataset_integrity",
+  "ml:outperforms": "baseline_contrast",
+  "ml:outperformson": "baseline_contrast",
+  "ml:finding": "statistical_significance",
+  "ml:usestechnique": "artifact_availability",
+  "ml:basemodel": "artifact_availability",
+  "ml:parametercount": "equation_check",
+  outperforms: "baseline_contrast",
+  outperformson: "baseline_contrast",
+  outperformsoncetaceantasks: "baseline_contrast",
+  outperformsonTask: "baseline_contrast",
+  performanceishigheston: "baseline_contrast",
+  transferperformanceworsethan: "baseline_contrast",
+  separatesecotypeworsethan: "baseline_contrast",
+  evaluatedon: "dataset_integrity",
+  evaluatedondataset: "dataset_integrity",
+  usedtoevaluate: "dataset_integrity",
+  sourcedfromdataset: "dataset_integrity",
+  trainedondataset: "dataset_integrity",
+  hasaucscoreontask: "metric_recompute",
+  hasmodelparametercount: "equation_check",
+  hasparametercount: "equation_check",
+  hasembeddingdimension: "equation_check",
+  hassamplerate: "equation_check",
+  haswindowsize: "equation_check",
+  usestechnique: "artifact_availability",
+  usesarchitecture: "artifact_availability",
+  usesmeanpooling: "artifact_availability",
+  usesoptimizer: "artifact_availability",
+  generatedusinglibrary: "artifact_availability",
+  finding: "statistical_significance",
+  demonstrates: "statistical_significance",
+};
+
 export function buildReplicationUnitsFromDonto(
   input: DontoReplicationBundleInput,
 ): ReplicationUnit[] {
+  const bySubject = new Map<string, DontoStatementInput[]>();
+  for (const statement of input.statements) {
+    const statements = bySubject.get(statement.subject) ?? [];
+    statements.push(statement);
+    bySubject.set(statement.subject, statements);
+  }
+
   return input.statements
-    .filter((statement) => ML_REPLICATION_PREDICATES.has(statement.predicate))
-    .map((statement, index) => buildMlReplicationUnit(input, statement, index));
+    .map((statement, index) => {
+      const unitType = unitTypeForPredicate(statement.predicate);
+      if (!unitType) return null;
+      return buildScientificReplicationUnit(
+        input,
+        statement,
+        unitType,
+        index,
+        bySubject.get(statement.subject) ?? [],
+      );
+    })
+    .filter((unit): unit is ReplicationUnit => Boolean(unit));
 }
 
-function buildMlReplicationUnit(
+function buildScientificReplicationUnit(
   input: DontoReplicationBundleInput,
   statement: DontoStatementInput,
+  unitType: ReplicationUnitType,
   index: number,
+  subjectFacts: DontoStatementInput[],
 ): ReplicationUnit {
   const evidenceQuote = statement.evidence_quote ? [statement.evidence_quote] : [];
-  const claimText = objectText(statement) ?? statement.subject;
-  const unitType = unitTypeForPredicate(statement.predicate);
+  const claimText = renderStatement(statement);
   const blockers = blockersForUnit(unitType);
 
   return {
-    id: `${input.paperId}:replication:${index}`,
+    id: statement.statementId
+      ? `${input.paperId}:replication:${statement.statementId}`
+      : `${input.paperId}:replication:${index}`,
     paperId: input.paperId,
-    claimIri: `${input.claimIriPrefix ?? "tp:claim"}:${input.paperId}:${index}`,
+    claimIri: statement.subject || `${input.claimIriPrefix ?? "tp:claim"}:${input.paperId}:${index}`,
     sourceStatementIds: statement.statementId ? [statement.statementId] : [],
-    domain: "ml",
+    domain: domainForStatement(statement),
     unitType,
     claimText,
     evidenceQuotes: evidenceQuote,
@@ -189,10 +301,10 @@ function buildMlReplicationUnit(
     expectedOutcome: expectedOutcomeForStatement(statement, claimText),
     falsificationCriteria: falsificationCriteriaForUnit(unitType),
     requiredArtifacts: artifactRequirementsForUnit(unitType),
-    datasets: datasetRequirementsForStatement(statement),
-    methods: methodRequirementsForStatement(statement),
+    datasets: datasetRequirementsForStatement(statement, subjectFacts),
+    methods: methodRequirementsForStatement(statement, subjectFacts),
     metrics: metricRequirementsForStatement(statement),
-    baselines: baselineRequirementsForStatement(statement),
+    baselines: baselineRequirementsForStatement(statement, subjectFacts),
     parameters: parameterRequirementsForStatement(statement),
     computeBudget: computeBudgetForUnit(unitType),
     verifierCandidates: verifierCandidatesForUnit(unitType),
@@ -207,44 +319,167 @@ function buildMlReplicationUnit(
   };
 }
 
+function predicateKey(predicate: string): string {
+  return predicate.trim().toLowerCase();
+}
+
+function predicateLocalName(predicate: string): string {
+  const parts = predicate.split(/[#:]/);
+  return (parts[parts.length - 1] ?? predicate).trim();
+}
+
+function friendlyTerm(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .replace(/^https?:\/\/[^#/]+[#/]/, "")
+    .replace(/^[a-z]+:/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function humanPredicate(predicate: string): string {
+  const local = predicateLocalName(predicate);
+  return local
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .toLowerCase();
+}
+
 function objectText(statement: DontoStatementInput): string | null {
   if (statement.object_lit) return String(statement.object_lit.v);
   if (statement.object_iri) return statement.object_iri;
   return null;
 }
 
-function unitTypeForPredicate(predicate: string): ReplicationUnitType {
-  if (predicate === "ml:score") return "metric_recompute";
-  if (predicate === "ml:benchmark" || predicate === "ml:outperformsOn") return "baseline_contrast";
-  if (predicate === "ml:outperforms") return "baseline_contrast";
-  if (predicate === "ml:evaluationSetting") return "dataset_integrity";
-  if (predicate === "ml:usesTechnique" || predicate === "ml:baseModel") return "artifact_availability";
-  if (predicate === "ml:parameterCount") return "equation_check";
-  if (predicate === "ml:finding") return "statistical_significance";
+function renderStatement(statement: DontoStatementInput): string {
+  const object = objectText(statement);
+  return [
+    friendlyTerm(statement.subject),
+    humanPredicate(statement.predicate),
+    object ? friendlyTerm(String(object)) : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function unitTypeForPredicate(predicate: string): ReplicationUnitType | null {
+  if (ML_REPLICATION_PREDICATES.has(predicate)) {
+    return EXACT_PREDICATE_ALIASES[predicateKey(predicate)] ?? "human_review";
+  }
+
+  const key = predicateKey(predicate);
+  if (BIBLIOGRAPHIC_PREDICATES.has(key) || INTERNAL_METADATA_PREDICATES.has(key)) {
+    return null;
+  }
+  if (EXACT_PREDICATE_ALIASES[key]) return EXACT_PREDICATE_ALIASES[key];
+
+  const local = predicateLocalName(predicate).toLowerCase();
+  if (BIBLIOGRAPHIC_PREDICATES.has(local) || INTERNAL_METADATA_PREDICATES.has(local)) {
+    return null;
+  }
+
+  if (
+    /(outperform|better|worse|highest|beats?|exceeds?|compare|improve|increase|decrease|reduce|enhance|surpass|lower|higher|greater|less|relative|versus|vs)/.test(
+      local,
+    )
+  ) {
+    return "baseline_contrast";
+  }
+  if (
+    /(dataset|benchmark|evaluation|evaluated|trainedon|sourcedfrom|sample|cohort|specimen|corpus|repository|archive|source)/.test(
+      local,
+    )
+  ) {
+    return "dataset_integrity";
+  }
+  if (
+    /(simulate|simulation|modeled|modelled|dynamics|evolution|diffusion|transport|flow|reaction|phase|transition|trajectory|orbit|wave|particle|fluid|thermal|mechanical|fracture|crack|grain|interface)/.test(
+      local,
+    )
+  ) {
+    return "simulation";
+  }
+  if (
+    /(equation|formula|law|derive|calculated|computed|predicted|proportional|scaling|ratio|coefficient|constant|parameter|dimension|length|width|height|thickness|diameter|radius|area|volume|mass|weight|density|temperature|pressure|concentration|dose|ph|energy|force|stress|strain|modulus|strength|hardness|viscosity|conductivity|resistance|voltage|current|field|frequency|wavelength|speed|velocity|acceleration|time|duration|percentage|percent|rate|count|auc|accuracy|precision|recall|f1|score|metric|samplerate|windowsize)/.test(
+      local,
+    )
+  ) {
+    return /(equation|formula|law|derive|calculated|computed|parameter|dimension|count|ratio|coefficient|constant)/.test(local)
+      ? "equation_check"
+      : "metric_recompute";
+  }
+  if (
+    /(uses?|architecture|optimizer|technique|pooling|model|library|implementation|software|instrument|apparatus|protocol|method|procedure|fabricated|prepared|synthesized|measuredwith)/.test(
+      local,
+    )
+  ) {
+    return "artifact_availability";
+  }
+  if (/(pvalue|p-value|significant|confidence|interval|correlation|regression|distribution|variance|mean|median|finding|demonstrat|show|indicat|support|observe|suggest|associate|effect)/.test(local)) {
+    return "statistical_significance";
+  }
+
   return "human_review";
 }
 
+function domainForStatement(statement: DontoStatementInput): ReplicationDomain {
+  const text = `${statement.subject} ${statement.predicate} ${objectText(statement) ?? ""}`.toLowerCase();
+  if (/(model|dataset|auc|embedding|classifier|baseline|benchmark|perch|birdnet|aves|gmwm|surfperch|parameter|optimizer)/.test(text)) {
+    return "ml";
+  }
+  if (/(whale|orca|bioacoustic|species|vocal|coda|ecotype|dataset)/.test(text)) {
+    return "biology";
+  }
+  if (/(physics|magnetic|viscosity|dynamo|reconnection|mhd|reynolds)/.test(text)) {
+    return "physics";
+  }
+  if (/(graphene|aluminum|aluminium|alloy|composite|polymer|ceramic|microstructure|tensile|fracture|grain|nanotube|oxide|metal|material|specimen|modulus|hardness)/.test(text)) {
+    return "materials";
+  }
+  if (/(chemical|chemistry|catalyst|reaction|molecule|compound|solvent|ph|concentration|synthesis|electrolyte|oxidation|reduction)/.test(text)) {
+    return "chemistry";
+  }
+  if (/(theorem|lemma|proof|corollary|conjecture|bounded|converges|matrix|manifold|topology|algebra|geometry)/.test(text)) {
+    return "math";
+  }
+  if (/(cell|protein|gene|rna|dna|organism|clinical|patient|species|enzyme|assay|genome|phenotype)/.test(text)) {
+    return "biology";
+  }
+  return "unknown";
+}
+
 function hypothesisForStatement(statement: DontoStatementInput, claimText: string): string {
-  if (statement.predicate === "ml:outperforms") {
+  const unitType = unitTypeForPredicate(statement.predicate);
+  if (unitType === "baseline_contrast") {
     return `${statement.subject} outperforms ${claimText} under the paper's reported evaluation setting.`;
   }
-  if (statement.predicate === "ml:score") {
+  if (unitType === "metric_recompute") {
     return `${statement.subject} achieves the reported metric value ${claimText}.`;
   }
-  if (statement.predicate === "ml:parameterCount") {
+  if (unitType === "equation_check") {
     return `${statement.subject} has the reported parameter count of ${claimText}.`;
   }
-  if (statement.predicate === "ml:finding") {
+  if (unitType === "statistical_significance") {
     return `The finding "${claimText}" for ${statement.subject} holds under independent statistical evaluation.`;
+  }
+  if (unitType === "simulation") {
+    return `A digital physics model can reproduce or falsify the reported statement: ${claimText}.`;
+  }
+  if (unitType === "human_review") {
+    return `The paper statement is preserved as a replication work item requiring method-aware interpretation: ${claimText}.`;
   }
   return `${statement.subject} claim can be independently checked: ${claimText}.`;
 }
 
 function expectedOutcomeForStatement(statement: DontoStatementInput, claimText: string): string {
-  if (statement.predicate === "ml:score") return `Recomputed metric matches ${claimText} within declared tolerance.`;
-  if (statement.predicate === "ml:outperforms") return `Proposed method beats baseline in the same direction as reported.`;
-  if (statement.predicate === "ml:parameterCount") return `Model architecture yields ${claimText} parameters when instantiated with reported config.`;
-  if (statement.predicate === "ml:finding") return `Statistical significance and effect direction match the reported finding.`;
+  const unitType = unitTypeForPredicate(statement.predicate);
+  if (unitType === "metric_recompute") return `Recomputed metric matches ${claimText} within declared tolerance.`;
+  if (unitType === "baseline_contrast") return `Proposed method beats baseline in the same direction as reported.`;
+  if (unitType === "equation_check") return `Model architecture or formula yields ${claimText}.`;
+  if (unitType === "statistical_significance") return `Statistical significance and effect direction match the reported finding.`;
+  if (unitType === "simulation") return "A reduced or exact digital model reproduces the qualitative or quantitative behavior reported by the paper.";
+  if (unitType === "human_review") return "A verifier either maps the statement to executable artifacts or records a precise blocker.";
   return "Verifier either reproduces the claim, identifies a blocker, or emits a non-signal verdict.";
 }
 
@@ -273,6 +508,18 @@ function falsificationCriteriaForUnit(unitType: ReplicationUnitType): string[] {
       "Effect size is not significant under corrected multiple-comparison testing.",
     ];
   }
+  if (unitType === "simulation") {
+    return [
+      "A digital model with the paper's stated assumptions fails to reproduce the reported trend.",
+      "Required boundary conditions, material parameters, or dynamical equations are absent.",
+    ];
+  }
+  if (unitType === "human_review") {
+    return [
+      "The statement cannot be mapped to a concrete artifact, measurement, equation, dataset, or simulation procedure.",
+      "A specialized verifier identifies contradictory source evidence or missing method detail.",
+    ];
+  }
   return ["Required artifacts or assumptions are unavailable after reasonable search."];
 }
 
@@ -287,19 +534,46 @@ function artifactRequirementsForUnit(unitType: ReplicationUnitType): Replication
       { kind: "config", name: "hyperparameter/config file", required: true },
     ];
   }
+  if (unitType === "simulation") {
+    return [
+      { kind: "paper", name: "source paper evidence", required: true },
+      { kind: "config", name: "model assumptions, parameters, and boundary conditions", required: true },
+    ];
+  }
   return [{ kind: "paper", name: "source paper evidence", required: true }];
 }
 
-function datasetRequirementsForStatement(statement: DontoStatementInput): DatasetRequirement[] {
-  if (statement.predicate === "ml:benchmark" || statement.predicate === "ml:outperformsOn") {
+function datasetRequirementsForStatement(
+  statement: DontoStatementInput,
+  subjectFacts: DontoStatementInput[],
+): DatasetRequirement[] {
+  const datasetFacts = subjectFacts.filter((fact) =>
+    /(dataset|benchmark|evaluatedon|sourcedfrom|trainedon)/i.test(fact.predicate),
+  );
+  if (datasetFacts.length > 0) {
+    return datasetFacts.map((fact) => ({
+      name: friendlyTerm(objectText(fact) ?? "reported dataset"),
+      splits: [],
+    }));
+  }
+  if (unitTypeForPredicate(statement.predicate) === "dataset_integrity") {
     return [{ name: objectText(statement) ?? "reported benchmark", splits: [] }];
   }
   return [];
 }
 
-function methodRequirementsForStatement(statement: DontoStatementInput): MethodRequirement[] {
-  if (statement.predicate === "ml:usesTechnique") {
-    return [{ name: objectText(statement) ?? statement.subject, role: "proposed" }];
+function methodRequirementsForStatement(
+  statement: DontoStatementInput,
+  subjectFacts: DontoStatementInput[],
+): MethodRequirement[] {
+  const methodFacts = subjectFacts.filter((fact) =>
+    /(uses?|architecture|optimizer|technique|model|pooling|library)/i.test(fact.predicate),
+  );
+  if (methodFacts.length > 0) {
+    return methodFacts.slice(0, 5).map((fact) => ({
+      name: friendlyTerm(objectText(fact) ?? fact.subject),
+      role: "proposed",
+    }));
   }
   return [{ name: statement.subject, role: "proposed" }];
 }
@@ -308,12 +582,36 @@ function metricRequirementsForStatement(statement: DontoStatementInput): MetricR
   if (statement.predicate === "ml:score") {
     return [{ name: "reported metric", direction: "unknown", expected: objectText(statement) ?? undefined }];
   }
+  const unitType = unitTypeForPredicate(statement.predicate);
+  if (unitType === "metric_recompute" || unitType === "equation_check") {
+    return [{
+      name: friendlyTerm(predicateLocalName(statement.predicate)) || "reported observable",
+      direction: "unknown",
+      expected: objectText(statement) ?? undefined,
+    }];
+  }
   return [];
 }
 
-function baselineRequirementsForStatement(statement: DontoStatementInput): BaselineRequirement[] {
-  if (statement.predicate === "ml:outperforms") {
-    return [{ name: objectText(statement) ?? "reported baseline", expectedRelation: "outperformed_by_proposed" }];
+function baselineRequirementsForStatement(
+  statement: DontoStatementInput,
+  subjectFacts: DontoStatementInput[],
+): BaselineRequirement[] {
+  if (unitTypeForPredicate(statement.predicate) === "baseline_contrast") {
+    return [{
+      name: friendlyTerm(objectText(statement) ?? "reported baseline"),
+      expectedRelation: "outperformed_by_proposed",
+    }];
+  }
+
+  const comparisonFacts = subjectFacts.filter((fact) =>
+    /(comparedwith|baseline|outperform)/i.test(fact.predicate),
+  );
+  if (comparisonFacts.length > 0) {
+    return comparisonFacts.slice(0, 5).map((fact) => ({
+      name: friendlyTerm(objectText(fact) ?? "reported baseline"),
+      expectedRelation: "unknown",
+    }));
   }
   return [];
 }
@@ -321,6 +619,14 @@ function baselineRequirementsForStatement(statement: DontoStatementInput): Basel
 function parameterRequirementsForStatement(statement: DontoStatementInput): ParameterRequirement[] {
   if (statement.predicate === "ml:parameterCount") {
     return [{ name: "parameter count", value: objectText(statement) ?? undefined, required: true }];
+  }
+  const unitType = unitTypeForPredicate(statement.predicate);
+  if (unitType === "equation_check" || unitType === "simulation") {
+    return [{
+      name: friendlyTerm(predicateLocalName(statement.predicate)) || "reported parameter",
+      value: objectText(statement) ?? undefined,
+      required: unitType === "simulation",
+    }];
   }
   return [];
 }
@@ -338,6 +644,9 @@ function computeBudgetForUnit(unitType: ReplicationUnitType): ComputeBudget {
   if (unitType === "statistical_significance") {
     return { tier: "tiny", computeTier: "cpu", maxCpuHours: 2, maxMemoryGb: 8 };
   }
+  if (unitType === "simulation") {
+    return { tier: "reduced", computeTier: "cpu", maxCpuHours: 4, maxMemoryGb: 16 };
+  }
   return { tier: "human" };
 }
 
@@ -348,6 +657,7 @@ function verifierCandidatesForUnit(unitType: ReplicationUnitType): string[] {
   if (unitType === "dataset_integrity") return ["artifact-availability", "dataset-integrity"];
   if (unitType === "equation_check") return ["theory-shape-check", "config-replay"];
   if (unitType === "statistical_significance") return ["stat-sanity", "metric-table-parser"];
+  if (unitType === "simulation") return ["digital-physics-reduced-model", "theory-shape-check"];
   return ["human-review"];
 }
 
@@ -363,6 +673,24 @@ function blockersForUnit(unitType: ReplicationUnitType): ReplicationBlocker[] {
         code: "needs-seed-count",
         detail: "Need reported seed count or acceptable replication seed policy.",
         severity: "warning",
+      },
+    ];
+  }
+  if (unitType === "simulation") {
+    return [
+      {
+        code: "needs-hyperparameter-detail",
+        detail: "Need the paper's governing equations, boundary conditions, material constants, or equivalent assumptions for faithful simulation.",
+        severity: "warning",
+      },
+    ];
+  }
+  if (unitType === "human_review") {
+    return [
+      {
+        code: "needs-human-method-review",
+        detail: "No specialized deterministic verifier matched this extracted fact; keep it in the full-paper worklist for Codex/manual method reconstruction.",
+        severity: "blocking",
       },
     ];
   }

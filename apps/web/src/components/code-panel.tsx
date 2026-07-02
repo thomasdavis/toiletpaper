@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { VerdictBadge, Text, Stack, EmptyState } from "@toiletpaper/ui";
+import { normalizeVerdict, type Verdict } from "@/lib/verdict";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -12,11 +13,8 @@ interface SimFile {
   verdict: string | null;
 }
 
-function mapVerdict(verdict: string | null): "reproduced" | "contradicted" | "fragile" | "undetermined" {
-  if (verdict === "confirmed" || verdict === "reproduced") return "reproduced";
-  if (verdict === "refuted" || verdict === "contradicted") return "contradicted";
-  if (verdict === "fragile") return "fragile";
-  return "undetermined";
+function mapVerdict(verdict: string | null): Verdict {
+  return normalizeVerdict(verdict);
 }
 
 // ── Component ──────────────────────────────────────────────────────

@@ -74,6 +74,22 @@ output that compromises the rest of the pipeline:
 The route inserts only `text` and `confidence` into Postgres. `category`
 is dropped on the floor in the relational store; only Donto sees it.
 
+Current deployed implementation, 2026-06-18: the compact claim extractor
+still feeds the UI claim table, but a second rich graph pass now runs
+`donto-agent` over overlapping source chunks into the paper's Donto
+context. The wrapper persists per-chunk source windows, JSONL events,
+and a summary file. It also quality-gates each chunk: provider
+stream-drop/partial-output warnings, zero facts, sparse fact density,
+and very low anchor coverage trigger repair attempts. Remaining weak
+chunks are logged as degraded instead of hidden, because partial facts
+may already be in Donto and must remain auditable.
+
+Fresh validation on 2026-06-18 uploaded a small graphene/aluminum
+fixture PDF and produced 19 compact UI claims plus 719 Donto statements,
+402 spans, and 1,121 evidence links. The three rich GLM chunks produced
+559 facts with 386 anchors and no quality warnings, confirming that the
+current path is paper-graph extraction rather than a shallow claim list.
+
 ## Proposed design
 
 ### `ExtractionResult` schema
@@ -237,6 +253,9 @@ without provenance, gated on a feature flag.
 - `extractor.tokensUsed` and `extractor.model/version/parserVersion` are
   captured per claim (so we can compare claim quality across
   extractor versions).
+- Rich graph extraction emits per-paper chunk logs with
+  `qualityWarnings` and `qualityRetryCount`, and the UI surfaces repaired
+  or degraded chunks while extraction is running.
 
 ## Phasing
 

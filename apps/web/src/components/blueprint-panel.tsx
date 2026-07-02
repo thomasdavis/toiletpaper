@@ -1,6 +1,7 @@
 "use client";
 
 import { Heading, Text, Stack } from "@toiletpaper/ui";
+import { formatUtcDate } from "@/lib/datetime";
 
 interface BlueprintCluster {
   claim_ids: string[];
@@ -61,7 +62,7 @@ export function BlueprintPanel({ blueprint, modelUsed, createdAt }: Props) {
           {createdAt && (
             <>
               <span className="text-[#D4D0C8]">/</span>
-              <span>{new Date(createdAt).toLocaleDateString()}</span>
+              <span>{formatUtcDate(createdAt)}</span>
             </>
           )}
         </div>

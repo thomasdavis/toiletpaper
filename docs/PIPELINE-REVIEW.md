@@ -66,13 +66,26 @@ We ran 4 papers through the full toiletpaper pipeline over the last 24 hours. Th
 
 ### 4. Donto Integration
 
-**Status: Completely broken in production.**
+**Status in this historical review: broken in production.**
+
+**Current status, 2026-06-17:** repaired on the deployed
+toiletpaper.dev instance. Rich Donto extraction, evidence coverage,
+lifecycle progress, arguments, and proof obligations now load from live
+Donto/Postgres data. The Perch 2.0 whale paper reports 2,637 active
+statements, 2,637/2,637 production-run provenance coverage, 6 complete
+lifecycle stages, 4 partial stages, and 1 blocked stage. Codex
+verdict/reason statements are now Donto facts linked back to the Codex
+job, simulation rows, replication units, artifacts, and workdir.
 
 - `dontosrv` is up and healthy
 - Context creation works
 - Agent registration fails with `postgres error: db error`
 - All papers show `statementCount: 0`
-- The "Evidence Chain", "Lifecycle Progress", "Arguments", and "Proof Obligations" sections on paper pages never load
+- Historical issue: the "Evidence Chain", "Lifecycle Progress",
+  "Arguments", and "Proof Obligations" sections on paper pages never
+  loaded. These sections now lazy-load successfully; the section open
+  state is controlled by the parent Donto detail component so count
+  updates do not collapse the panel during fetches.
 
 **Root cause:** The dontosrv Postgres database (separate from toiletpaper's) likely doesn't have the `agents` table or has a schema version mismatch.
 
@@ -85,7 +98,10 @@ We ran 4 papers through the full toiletpaper pipeline over the last 24 hours. Th
 - Paper status lifecycle works
 
 **Problems:**
-- Donto sections always show "Loading..." (ingest broken)
+- Historical issue: Donto sections always showed "Loading..." when
+  ingest was broken. Current production sections show live coverage and
+  lifecycle evidence; remaining gaps are surfaced as partial/blocked
+  states rather than hidden behind loading UI.
 - Live simulation streaming deployed but untested (DB table created, needs next image build)
 - No way to trigger simulation from the UI (must use CLI or API)
 - Duplicate papers clutter the list

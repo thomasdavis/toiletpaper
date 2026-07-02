@@ -1,0 +1,21 @@
+[Unit]
+Description=toiletpaper Donto ingest worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ajax
+Group=ajax
+WorkingDirectory=/mnt/donto-data/workspace/toiletpaper
+EnvironmentFile=/etc/toiletpaper-web.env
+Environment=NO_COLOR=1
+Environment=PAGER=cat
+ExecStart=/usr/bin/pnpm exec tsx scripts/run-donto-ingest-worker.ts
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

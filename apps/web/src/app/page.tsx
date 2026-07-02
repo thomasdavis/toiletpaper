@@ -94,8 +94,10 @@ export default async function DashboardPage() {
             then tells you which results actually reproduce.
           </p>
           <p className="mt-4 max-w-2xl text-[15px] leading-[1.65] text-[#6B6B6B]">
-            Upload a PDF or markdown. Within a few minutes you get an annotated copy of
-            the paper with each claim color-coded <span className="font-semibold text-[#2D6A4F]">reproduced</span>,{" "}
+            Upload a PDF or markdown. The paper page opens immediately, then streams
+            extraction and full-paper replication as they run — quick papers can finish in
+            minutes, and faithful Codex replications can run for an hour or more. You get
+            an annotated copy with each claim color-coded <span className="font-semibold text-[#2D6A4F]">reproduced</span>,{" "}
             <span className="font-semibold text-[#9B2226]">contradicted</span>, or{" "}
             <span className="font-semibold text-[#B07D2B]">inconclusive</span>, plus the
             full simulation source, measured-vs-expected values, and a verdict report.

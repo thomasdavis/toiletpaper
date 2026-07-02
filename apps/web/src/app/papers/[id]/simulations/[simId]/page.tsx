@@ -8,20 +8,14 @@ import {
 } from "@toiletpaper/ui";
 import { DebugPanel } from "@/components/debug-panel";
 import { SimulationSource } from "@/components/simulation-source";
+import { normalizeVerdict } from "@/lib/verdict";
 
-function mapVerdict(verdict: string | null, metadata?: unknown) {
-  if (metadata && typeof metadata === "object") {
-    const m = metadata as Record<string, unknown>;
-    if (typeof m.original_verdict === "string") {
-      const ov = m.original_verdict;
-      if (ov === "reproduced") return "reproduced" as const;
-      if (ov === "contradicted") return "contradicted" as const;
-      if (ov === "fragile") return "fragile" as const;
-    }
-  }
-  if (verdict === "confirmed") return "reproduced" as const;
-  if (verdict === "refuted") return "contradicted" as const;
-  return "inconclusive" as const;
+function mapVerdict(
+  verdict: string | null,
+  metadata?: unknown,
+  reason?: string | null,
+) {
+  return normalizeVerdict(verdict, metadata, reason);
 }
 
 function formatMethodName(method: string): string {
@@ -53,11 +47,35 @@ function extractFile(metadata: unknown) {
   return typeof m.simulation_file === "string" ? m.simulation_file : undefined;
 }
 
+function extractArtifactFiles(result: unknown, metadata: unknown) {
+  const files = new Set<string>();
+  const simulationFile = extractFile(metadata);
+  if (simulationFile) files.add(simulationFile);
+
+  if (result && typeof result === "object") {
+    const artifacts = (result as Record<string, unknown>).artifacts;
+    if (Array.isArray(artifacts)) {
+      for (const artifact of artifacts) {
+        if (typeof artifact === "string") files.add(artifact);
+      }
+    }
+  }
+
+  return [...files].filter((file) => {
+    const ext = file.split(".").pop();
+    return ext === "py" || ext === "ts" || ext === "json" || ext === "md";
+  });
+}
+
 const VERDICT_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   reproduced: { bg: "bg-[#D4EDE1]", border: "border-[#2D6A4F]/30", text: "text-[#2D6A4F]" },
   contradicted: { bg: "bg-[#F5D5D6]", border: "border-[#9B2226]/30", text: "text-[#9B2226]" },
   fragile: { bg: "bg-[#FFF3E0]", border: "border-[#E65100]/30", text: "text-[#E65100]" },
   inconclusive: { bg: "bg-[#F5ECD4]", border: "border-[#B07D2B]/30", text: "text-[#B07D2B]" },
+  not_applicable: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#8B8589]" },
+  vacuous: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#8B8589]" },
+  system_error: { bg: "bg-[#F5D5D6]", border: "border-[#9B2226]/30", text: "text-[#9B2226]" },
+  untested: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#8B8589]" },
 };
 
 export default async function SimulationDetailPage({
@@ -75,9 +93,9 @@ export default async function SimulationDetailPage({
 
   const [claim] = await db.select().from(claims).where(eq(claims.id, sim.claimId));
 
-  const verdict = mapVerdict(sim.verdict, sim.metadata);
   const resultFields = extractResultFields(sim.result);
-  const simulationFile = extractFile(sim.metadata);
+  const verdict = mapVerdict(sim.verdict, sim.metadata, resultFields.reason);
+  const artifactFiles = extractArtifactFiles(sim.result, sim.metadata);
   const verdictStyle = VERDICT_STYLES[verdict] ?? VERDICT_STYLES.inconclusive;
 
   return (
@@ -179,18 +197,31 @@ export default async function SimulationDetailPage({
           </div>
         )}
 
-        {/* Simulation file */}
-        {simulationFile && (
+        {/* Simulation artifacts */}
+        {artifactFiles.length > 0 && (
           <div className="rounded-lg border border-[#E8E5DE] bg-white p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B] mb-2">Simulation File</p>
-            <code className="rounded bg-[#F5F3EF] px-2.5 py-1.5 font-mono text-sm text-[#3D3D3D]">{simulationFile}</code>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9B9B9B] mb-2">Simulation Artifacts</p>
+            <div className="flex flex-wrap gap-2">
+              {artifactFiles.map((file) => (
+                <code
+                  key={file}
+                  className="rounded bg-[#F5F3EF] px-2.5 py-1.5 font-mono text-sm text-[#3D3D3D]"
+                >
+                  {file}
+                </code>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Simulation source code */}
-        {simulationFile && (
-          <SimulationSource paperId={id} simId={simId} filename={simulationFile} />
-        )}
+        {artifactFiles.map((file) => (
+          <SimulationSource
+            key={file}
+            paperId={id}
+            simId={simId}
+            filename={file}
+          />
+        ))}
 
         {/* Full result JSON */}
         <div className="rounded-lg border border-[#E8E5DE] bg-white p-5">

@@ -14,6 +14,17 @@ import { eq, desc, asc, sql, count } from "drizzle-orm";
 import { getHistory, getContexts } from "@/lib/donto";
 import { listObjects } from "@/lib/storage";
 import { normalizeVerdict, isSignal } from "@/lib/verdict";
+import {
+  currentSimulations,
+  latestSimulationJobForPaper,
+} from "@/lib/current-simulations";
+import { summarizeReplicationReadiness } from "@/lib/replication-readiness";
+import { getDontoEvidenceCoverage } from "@/lib/donto-coverage";
+import { summarizeWholePaperCoverage } from "@/lib/whole-paper-coverage";
+import { summarizeReplicationGapManifest } from "@/lib/replication-gap-manifest";
+import { loadPaperArtifactManifest } from "@/lib/paper-artifacts";
+import { summarizeArtifactGapCoverage } from "@/lib/artifact-gap-coverage";
+import { summarizeCodexWorkdirDossier } from "@/lib/codex-replication-dossier";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +79,14 @@ async function fetchDontoData(
     const paperIri = `tp:paper:${paper.id}`;
     const claimsCtx = `tp:paper:${paper.id}:claims`;
 
-    const [paperHistory, contexts, obligationSummary, openObligations, argumentsFrontier] = await Promise.all([
+    const [
+      paperHistory,
+      contexts,
+      obligationSummary,
+      openObligations,
+      argumentsFrontier,
+      coverage,
+    ] = await Promise.all([
       getHistory(paperIri),
       getContexts(),
       fetch(`${DONTOSRV_URL}/obligations/summary`, { headers: { accept: "application/json" } })
@@ -80,6 +98,7 @@ async function fetchDontoData(
       }).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${DONTOSRV_URL}/arguments/frontier`, { headers: { accept: "application/json" } })
         .then(r => r.ok ? r.json() : null).catch(() => null),
+      getDontoEvidenceCoverage(paper.id).catch(() => null),
     ]);
 
     const paperContext = contexts?.contexts?.find(
@@ -119,6 +138,7 @@ async function fetchDontoData(
       arguments: {
         frontier: argumentsFrontier?.frontier ?? [],
       },
+      coverage,
     };
   } catch {
     return null;
@@ -158,7 +178,7 @@ export async function GET(
     logCountResult,
     logPreview,
     artifacts,
-    donto,
+    artifactBundles,
   ] = await Promise.all([
     // Claims
     db
@@ -226,16 +246,28 @@ export async function GET(
     // GCS artifacts (non-blocking)
     fetchArtifacts(id).catch(() => ({ source: "none" as const, files: [] })),
 
-    // Donto placeholder — fetched below after claims resolve
-    Promise.resolve(null),
+    // User-supplied supplemental paper artifacts
+    loadPaperArtifactManifest(id).catch(() => null),
   ]);
 
   // Fetch full Donto data (needs claim IRIs from above)
-  const dontoFull = await fetchDontoData(paper, paperClaims).catch(() => null);
+  const [dontoFull, latestSimulationJob] = await Promise.all([
+    fetchDontoData(paper, paperClaims).catch(() => null),
+    latestSimulationJobForPaper(id),
+  ]);
+  const currentSimulationIds = new Set(
+    currentSimulations(
+      allSimulations.map((row) => row.simulation),
+      latestSimulationJob,
+    ).map((sim) => sim.id),
+  );
+  const currentSimulationRows = allSimulations.filter((row) =>
+    currentSimulationIds.has(row.simulation.id),
+  );
 
   // ── 3. Group simulations by claim ───────────────────────────────────────
-  const simsByClaim = new Map<string, typeof allSimulations>();
-  for (const row of allSimulations) {
+  const simsByClaim = new Map<string, typeof currentSimulationRows>();
+  for (const row of currentSimulationRows) {
     const arr = simsByClaim.get(row.claimId) ?? [];
     arr.push(row);
     simsByClaim.set(row.claimId, arr);
@@ -319,6 +351,58 @@ export async function GET(
     verdictDistribution: verdictCounts,
     reviewStatus,
   };
+  const claimById = new Map(paperClaims.map((claim) => [claim.id, claim]));
+  const replicationReadiness = summarizeReplicationReadiness(
+    currentSimulationRows.map((row) => ({
+      ...row.simulation,
+      claimText: claimById.get(row.claimId)?.text ?? null,
+      unitType: claimById.get(row.claimId)?.predicate ?? null,
+    })),
+  );
+  const wholePaperCoverage = summarizeWholePaperCoverage({
+    dontoStatementCount: dontoIngestRow?.statementCount ?? 0,
+    units: replicationUnitRows.map((unit) => ({
+      id: unit.id,
+      unitType: unit.unitType,
+      sourceStatementIds: unit.sourceStatementIds,
+      state: unit.state,
+    })),
+    simulations: currentSimulationRows.map((row) => row.simulation),
+    latestJob: latestSimulationJob
+      ? {
+          id: latestSimulationJob.id,
+          state: latestSimulationJob.state,
+          totalUnits: latestSimulationJob.totalUnits,
+          completedUnits: latestSimulationJob.completedUnits,
+          failedUnits: latestSimulationJob.failedUnits,
+        }
+      : null,
+  });
+  const artifactManifest = summarizeReplicationGapManifest({
+    units: replicationUnitRows.map((unit) => ({
+      id: unit.id,
+      claimText: unit.claimText,
+      unitType: unit.unitType,
+      domain: unit.domain,
+      sourceStatementIds: unit.sourceStatementIds,
+      requiredArtifacts: unit.requiredArtifacts,
+      blockers: unit.blockers,
+    })),
+    simulations: currentSimulationRows.map((row) => ({
+      ...row.simulation,
+      claimText: claimById.get(row.claimId)?.text ?? null,
+    })),
+  });
+  const artifactGapCoverage = summarizeArtifactGapCoverage({
+    gapManifest: artifactManifest,
+    artifactManifest: artifactBundles,
+  });
+  const replicationDossier = latestSimulationJob
+    ? await summarizeCodexWorkdirDossier({
+        paperId: id,
+        job: latestSimulationJob,
+      }).catch(() => null)
+    : null;
 
   // ── 5. Assemble response ────────────────────────────────────────────────
   const logCount = Number(logCountResult);
@@ -329,6 +413,7 @@ export async function GET(
     dontoIngest: dontoIngestRow,
     routerDecisions: routerDecisionRows,
     replicationUnits: replicationUnitRows,
+    simulationJob: latestSimulationJob,
     blueprint: latestBlueprint
       ? {
           id: latestBlueprint.id,
@@ -343,7 +428,13 @@ export async function GET(
       truncated: !fullLogs && logCount > 50,
     },
     artifacts,
+    artifactBundles,
     donto: dontoFull,
     stats,
+    replicationReadiness,
+    wholePaperCoverage,
+    artifactManifest,
+    artifactGapCoverage,
+    replicationDossier,
   });
 }

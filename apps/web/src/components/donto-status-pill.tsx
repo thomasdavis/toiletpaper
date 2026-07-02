@@ -8,6 +8,10 @@ interface Props {
   paperId: string;
 }
 
+function formatStatementCount(count: number) {
+  return new Intl.NumberFormat("en-US").format(count);
+}
+
 /**
  * Per-paper Donto ingest status (PRD-005). Reads `paper_donto_ingest`
  * and renders a Pill that's color-coded by state.
@@ -38,12 +42,10 @@ export async function DontoStatusPill({ paperId }: Props) {
   switch (row.state) {
     case "succeeded": {
       const stmts = row.statementCount ?? 0;
-      const claims = stmts > 0 ? Math.max(1, Math.round(stmts / 7)) : 0;
-      const perClaim = claims > 0 ? Math.round(stmts / claims) : 0;
       return (
         <Pill tone="green" dot>
           Donto · synced
-          {perClaim > 0 ? ` · ${perClaim} quads/claim` : ""}
+          {stmts > 0 ? ` · ${formatStatementCount(stmts)} statements` : ""}
         </Pill>
       );
     }

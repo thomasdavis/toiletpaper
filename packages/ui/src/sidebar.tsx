@@ -1,6 +1,6 @@
 "use client";
 
-import { type HTMLAttributes, type ReactNode, forwardRef, useState } from "react";
+import { type HTMLAttributes, type ReactNode, forwardRef } from "react";
 import { cn } from "./cn";
 
 /* ---- Sidebar shell ---- */

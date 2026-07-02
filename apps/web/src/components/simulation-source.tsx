@@ -18,7 +18,9 @@ export function SimulationSource({ paperId, simId, filename }: Props) {
   useEffect(() => {
     if (!expanded || code !== null) return;
     setLoading(true);
-    fetch(`/api/papers/${paperId}/simulations/${simId}/source`)
+    fetch(
+      `/api/papers/${paperId}/simulations/${simId}/source?file=${encodeURIComponent(filename)}`,
+    )
       .then(async (r) => {
         if (!r.ok) {
           setError("Source file not available");
@@ -50,7 +52,7 @@ export function SimulationSource({ paperId, simId, filename }: Props) {
             {"</>"}
           </span>
           <div>
-            <p className="text-sm font-semibold text-[#1A1A1A]">Simulation Source Code</p>
+            <p className="text-sm font-semibold text-[#1A1A1A]">Simulation Artifact</p>
             <p className="text-xs text-[#9B9B9B]">{filename}</p>
           </div>
         </div>

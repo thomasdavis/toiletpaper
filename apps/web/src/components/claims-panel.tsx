@@ -15,17 +15,21 @@ import {
 } from "@toiletpaper/ui";
 import type { SerializedClaim } from "./claim-drawer";
 import { getClaimVerdict } from "./claim-drawer";
+import type { Verdict } from "@/lib/verdict";
 
 // ── Filter types ───────────────────────────────────────────────────
 
-type VerdictFilter = "all" | "contradicted" | "reproduced" | "fragile" | "undetermined" | "untested";
+type VerdictFilter = "all" | Verdict;
 
 const FILTERS: { key: VerdictFilter; label: string; color: string }[] = [
   { key: "all", label: "All", color: "#1A1A1A" },
   { key: "contradicted", label: "Contradicted", color: "#9B2226" },
   { key: "reproduced", label: "Reproduced", color: "#2D6A4F" },
   { key: "fragile", label: "Fragile", color: "#B07D2B" },
-  { key: "undetermined", label: "Inconclusive", color: "#6B6B6B" },
+  { key: "inconclusive", label: "Inconclusive", color: "#B07D2B" },
+  { key: "not_applicable", label: "Not applicable", color: "#8B8589" },
+  { key: "vacuous", label: "Vacuous", color: "#8B8589" },
+  { key: "system_error", label: "System error", color: "#9B2226" },
   { key: "untested", label: "Untested", color: "#D4D0C8" },
 ];
 
@@ -34,11 +38,6 @@ const FILTERS: { key: VerdictFilter; label: string; color: string }[] = [
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max).trimEnd() + "...";
-}
-
-function mapVerdictForBadge(v: ReturnType<typeof getClaimVerdict>) {
-  if (v === "untested") return "undetermined" as const;
-  return v;
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -64,7 +63,10 @@ export function ClaimsPanel({ claims, onClaimClick }: ClaimsPanelProps) {
       contradicted: 0,
       reproduced: 0,
       fragile: 0,
-      undetermined: 0,
+      inconclusive: 0,
+      not_applicable: 0,
+      vacuous: 0,
+      system_error: 0,
       untested: 0,
     };
     for (const { verdict } of claimsWithVerdict) {
@@ -156,7 +158,7 @@ export function ClaimsPanel({ claims, onClaimClick }: ClaimsPanelProps) {
                   </Text>
                 </TableCell>
                 <TableCell>
-                  <VerdictBadge verdict={mapVerdictForBadge(verdict)} />
+                  <VerdictBadge verdict={verdict} />
                 </TableCell>
                 <TableCell>
                   <Text size="sm" as="span">

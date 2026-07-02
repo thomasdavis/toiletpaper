@@ -3,7 +3,6 @@ import {
   DONTOSRV_URL,
   ensureContext,
   assert,
-  assertBatch,
   registerDocument,
   createRevision,
   registerAgent,
@@ -24,8 +23,12 @@ import {
   attachCertificate,
   recordVerification,
 } from "./donto-pg";
-import type { ExtractionResult, ExtractedClaim, ClaimRelation } from "./llm";
+import type { ExtractionResult, ExtractedClaim } from "./llm";
 import { extractorModel, extractorVersion } from "./llm";
+import {
+  extractRichFactsWithDontoAgent,
+  type DontoAgentExtractionResult,
+} from "./donto-agent";
 
 const TP_CONTEXT = "tp:papers";
 
@@ -42,6 +45,7 @@ export interface IngestResult {
   argumentCount: number;
   certifiedCount: number;
   shapeChecks: number;
+  richFacts?: DontoAgentExtractionResult;
 }
 
 function buildClaimStatements(
@@ -162,7 +166,11 @@ export async function ingestPaperIntoDonto(
   if (extraction.abstract) {
     metadataStmts.push({ subject: paperIri, predicate: "schema:description", object_lit: { v: extraction.abstract, dt: "xsd:string" }, context: paperCtx });
   }
-  await assertBatch(DONTOSRV_URL, metadataStmts);
+  const metadataStmtIds: string[] = [];
+  for (const stmt of metadataStmts) {
+    const res = await assert(DONTOSRV_URL, stmt);
+    metadataStmtIds.push(res.statement_id);
+  }
 
   // ── 8. Assert claims individually (need UUIDs) ────────────────────────
   const claimIris: string[] = [];
@@ -188,6 +196,12 @@ export async function ingestPaperIntoDonto(
 
   // ── 9. Link every statement to the extraction run (→ "extracted") ─────
   let evidenceLinkCount = 0;
+  for (const stmtId of metadataStmtIds) {
+    try {
+      await linkEvidenceRun(stmtId, runId, paperCtx);
+      evidenceLinkCount++;
+    } catch (_e) { /* dup link */ }
+  }
   for (const [, ids] of Object.entries(claimStmtIds)) {
     for (const stmtId of ids) {
       try {
@@ -383,18 +397,38 @@ export async function ingestPaperIntoDonto(
   const totalStatements = metadataStmts.length + claimQuadCount;
   await completeExtraction(runId, totalStatements);
 
+  // ── 17. Rich Donto-agent fact extraction ──────────────────────────────
+  // The UI-facing claim extractor above intentionally produces a compact claim
+  // list. The simulator and substrate need the opposite: a dense, anchored fact
+  // graph. Reuse the installed donto-agent GLM lane to sweep the full paper text
+  // in chunks into this same paper context.
+  let richFacts: DontoAgentExtractionResult | undefined;
+  try {
+    richFacts = await extractRichFactsWithDontoAgent({
+      paperId,
+      context: paperCtx,
+      text: pdfText,
+    });
+  } catch (e) {
+    if (process.env.DONTO_AGENT_REQUIRED !== "0") {
+      throw e;
+    }
+    richFacts = undefined;
+  }
+
   return {
     documentId: docRes.document_id,
     revisionId: revRes.revision_id,
     agentId: agentRes.agent_id,
     runId,
-    statementCount: totalStatements,
+    statementCount: totalStatements + (richFacts?.statementCount ?? 0),
     claimIris,
     obligationIds,
-    spanCount,
-    evidenceLinkCount,
+    spanCount: spanCount + (richFacts?.anchoredCount ?? 0),
+    evidenceLinkCount: evidenceLinkCount + (richFacts?.evidenceLinkCount ?? 0),
     argumentCount,
     certifiedCount,
     shapeChecks,
+    richFacts,
   };
 }

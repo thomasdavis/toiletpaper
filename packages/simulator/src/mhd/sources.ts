@@ -1,5 +1,5 @@
-import { type Grid, totalX, totalY, cellCenterX } from "./grid";
-import { type MhdState, NVAR, RHO, MX, MY, MZ, BX, BY, BZ, EN, getVar } from "./state";
+import { totalX, totalY, cellCenterX } from "./grid";
+import { type MhdState, RHO, MX, MY, BX, BY, BZ, EN, getVar } from "./state";
 
 export interface SourceTerms {
   apply(state: MhdState, dU: Float64Array): void;

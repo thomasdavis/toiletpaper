@@ -1,6 +1,5 @@
 import {
   DONTOSRV_URL,
-  assert,
   assertBatch,
   donto,
   type AssertInput,

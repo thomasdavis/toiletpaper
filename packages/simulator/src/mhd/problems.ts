@@ -105,8 +105,6 @@ export function mriShearingBox(
   const Ly = 1.0;
   const g = createGrid(nx, ny, 0, Lx, 0, Ly);
 
-  const Omega = 1.0; // angular velocity
-  const q = 1.5; // shear parameter (Keplerian)
   const rho0 = 1.0;
   const cs = 1.0;
   const p0 = rho0 * cs * cs / gamma;
@@ -116,9 +114,6 @@ export function mriShearingBox(
 
   for (let j = 0; j < g.ny + 2 * g.nghost; j++) {
     for (let i = 0; i < g.nx + 2 * g.nghost; i++) {
-      const x = cellCenterX(g, i);
-      const y = cellCenterY(g, j);
-
       // White noise velocity perturbation
       const dvx = 1e-4 * cs * (Math.random() - 0.5);
       const dvy = 1e-4 * cs * (Math.random() - 0.5);

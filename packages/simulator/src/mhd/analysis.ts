@@ -1,4 +1,3 @@
-import { type Grid, totalX, totalY } from "./grid";
 import {
   type MhdState,
   getVar,
@@ -9,10 +8,8 @@ import {
   BX,
   BY,
   BZ,
-  EN,
   pressure,
   alfvenSpeed,
-  totalDivB,
 } from "./state";
 
 export interface ReconnectionMeasurement {
@@ -141,7 +138,11 @@ export function measureDynamo(
   };
 }
 
-export function measureViscosity(state: MhdState, Omega: number = 1.0, q: number = 1.5): ViscosityMeasurement {
+export function measureViscosity(
+  state: MhdState,
+  _Omega: number = 1.0,
+  _q: number = 1.5,
+): ViscosityMeasurement {
   const g = state.grid;
   let maxwellSum = 0;
   let reynoldsSum = 0;

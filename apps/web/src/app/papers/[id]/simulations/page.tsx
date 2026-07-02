@@ -32,20 +32,17 @@ import {
 import { SimulationsTable } from "./simulations-table";
 import { DebugPanel } from "@/components/debug-panel";
 import { PaperTabs } from "@/components/paper-tabs";
+import { isSignal, normalizeVerdict, type Verdict } from "@/lib/verdict";
+import { getCurrentSimulationsForPaper } from "@/lib/current-simulations";
+import { ReplicationReadiness } from "@/components/replication-readiness";
+import { summarizeReplicationReadiness } from "@/lib/replication-readiness";
 
-function mapVerdict(verdict: string | null, metadata?: unknown) {
-  if (metadata && typeof metadata === "object") {
-    const m = metadata as Record<string, unknown>;
-    if (typeof m.original_verdict === "string") {
-      const ov = m.original_verdict;
-      if (ov === "reproduced") return "reproduced" as const;
-      if (ov === "contradicted") return "contradicted" as const;
-      if (ov === "fragile") return "fragile" as const;
-    }
-  }
-  if (verdict === "confirmed") return "reproduced" as const;
-  if (verdict === "refuted") return "contradicted" as const;
-  return "inconclusive" as const;
+function mapVerdict(
+  verdict: string | null,
+  metadata?: unknown,
+  reason?: string | null,
+) {
+  return normalizeVerdict(verdict, metadata, reason);
 }
 
 function extractConfidence(result: unknown): number | undefined {
@@ -54,12 +51,18 @@ function extractConfidence(result: unknown): number | undefined {
   return typeof r.confidence === "number" ? r.confidence : undefined;
 }
 
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
+
 export interface SimulationRow {
   id: string;
   claimId: string;
   claimText: string;
   method: string;
-  verdict: string;
+  verdict: Verdict;
   confidence: number | undefined;
   createdAt: string;
   result: unknown;
@@ -76,30 +79,24 @@ export default async function SimulationsListPage({
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) notFound();
 
-  const paperClaims = await db
-    .select()
-    .from(claims)
-    .where(eq(claims.paperId, id));
-
-  const claimIds = paperClaims.map((c) => c.id);
-  let sims: (typeof simulations.$inferSelect)[] = [];
-  if (claimIds.length > 0) {
-    const allSims = await Promise.all(
-      claimIds.map((cid) =>
-        db.select().from(simulations).where(eq(simulations.claimId, cid)),
-      ),
-    );
-    sims = allSims.flat();
-  }
+  const { claims: paperClaims, simulations: sims } =
+    await getCurrentSimulationsForPaper(id);
 
   const claimMap = new Map(paperClaims.map((c) => [c.id, c]));
+  const readinessSummary = summarizeReplicationReadiness(
+    sims.map((sim) => ({
+      ...sim,
+      claimText: claimMap.get(sim.claimId)?.text ?? null,
+      unitType: claimMap.get(sim.claimId)?.predicate ?? null,
+    })),
+  );
 
   const rows: SimulationRow[] = sims.map((sim) => ({
     id: sim.id,
     claimId: sim.claimId,
     claimText: claimMap.get(sim.claimId)?.text ?? "Unknown claim",
     method: sim.method,
-    verdict: mapVerdict(sim.verdict, sim.metadata),
+    verdict: mapVerdict(sim.verdict, sim.metadata, resultReason(sim.result)),
     confidence: extractConfidence(sim.result),
     createdAt: sim.createdAt.toISOString(),
     result: sim.result,
@@ -155,10 +152,12 @@ export default async function SimulationsListPage({
             <p className="mt-1 font-mono text-2xl font-bold text-[#9B2226]">{rows.filter((r) => r.verdict === "contradicted").length}</p>
           </div>
           <div className="rounded-lg border border-[#B07D2B]/20 bg-[#F5ECD4]/20 p-4 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#B07D2B]">Inconclusive</p>
-            <p className="mt-1 font-mono text-2xl font-bold text-[#B07D2B]">{rows.filter((r) => r.verdict === "inconclusive").length}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#8B8589]">No Signal</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-[#8B8589]">{rows.filter((r) => !isSignal(r.verdict)).length}</p>
           </div>
         </div>
+
+        <ReplicationReadiness summary={readinessSummary} />
 
         {/* Interactive table */}
         <SimulationsTable rows={rows} paperId={id} />

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { formatUtcDateTime } from "@/lib/datetime";
 
 interface Props {
   paperId: string;
@@ -11,6 +12,17 @@ interface Props {
   ingestState?: string | null;
   statementCount?: number | null;
   lastErrorCode?: string | null;
+  simulationGenerationEnabled: boolean;
+  latestSimulationJob?: {
+    id: string;
+    state: string;
+    totalUnits: number;
+    completedUnits: number;
+    failedUnits: number;
+    startedAt: string | null;
+    finishedAt: string | null;
+    errorSummary: string | null;
+  } | null;
 }
 
 function stepTone(state: "done" | "current" | "pending" | "failed") {
@@ -53,17 +65,31 @@ export function PaperProcessingPanel({
   ingestState,
   statementCount,
   lastErrorCode,
+  simulationGenerationEnabled,
+  latestSimulationJob,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [simState, setSimState] = useState<"idle" | "starting" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const simulationGenerationPaused = !simulationGenerationEnabled;
 
+  const activeSimulationJob =
+    latestSimulationJob?.state === "queued" ||
+    latestSimulationJob?.state === "running";
+  const completedJobUnits =
+    (latestSimulationJob?.completedUnits ?? 0) +
+    (latestSimulationJob?.failedUnits ?? 0);
+  const jobPercent =
+    latestSimulationJob && latestSimulationJob.totalUnits > 0
+      ? Math.round((completedJobUnits / latestSimulationJob.totalUnits) * 100)
+      : 0;
   const isLive =
     status === "extracting" ||
     status === "simulating" ||
     ingestState === "queued" ||
     ingestState === "running" ||
+    activeSimulationJob ||
     simState === "starting";
 
   useEffect(() => {
@@ -113,21 +139,53 @@ export function PaperProcessingPanel({
           ? "current"
           : "pending";
 
+  const hasGraphInput = ingestState === "succeeded" && (statementCount ?? 0) > 0;
   const simulationStepState =
-    status === "error" && claimCount > 0
+    latestSimulationJob?.state === "failed"
       ? "failed"
-      : status === "simulating" || simState === "starting"
+      : activeSimulationJob
         ? "current"
-        : simulationCount > 0 || status === "done"
+        : latestSimulationJob?.state === "succeeded"
           ? "done"
-          : "pending";
+          : simulationGenerationPaused && simulationCount === 0
+            ? "pending"
+            : status === "error" && claimCount > 0
+              ? "failed"
+              : status === "simulating" || simState === "starting"
+                ? "current"
+                : simulationCount > 0 || status === "done"
+                  ? "done"
+                  : "pending";
+
+  const simulationStepDetail = latestSimulationJob
+    ? latestSimulationJob.state === "queued"
+      ? `${latestSimulationJob.totalUnits} units queued`
+      : latestSimulationJob.state === "running"
+        ? `${completedJobUnits}/${latestSimulationJob.totalUnits} units (${jobPercent}%)`
+        : latestSimulationJob.state === "failed"
+          ? latestSimulationJob.errorSummary ?? "Failed"
+          : `${latestSimulationJob.completedUnits}/${latestSimulationJob.totalUnits} units complete`
+    : simulationGenerationPaused && simulationCount === 0
+      ? "Paused"
+      : simulationCount > 0
+        ? `${simulationCount} runs`
+        : simulationStepState === "current"
+          ? "Running"
+          : simulationStepState === "failed"
+            ? "Failed"
+            : hasGraphInput
+              ? "Ready from graph"
+              : "Ready after claims";
 
   const canStartSimulation =
-    claimCount > 0 &&
-    simulationCount === 0 &&
+    !simulationGenerationPaused &&
+    !activeSimulationJob &&
+    (claimCount > 0 || hasGraphInput) &&
     status !== "extracting" &&
     status !== "simulating" &&
     status !== "error";
+  const simulationButtonLabel =
+    simulationCount > 0 ? "Run full replication" : "Start simulation";
 
   return (
     <div className="mb-6 rounded-lg border border-[#E8E5DE] bg-white p-4">
@@ -137,7 +195,11 @@ export function PaperProcessingPanel({
             Processing
           </h4>
           <p className="mt-1 text-sm text-[#6B6B6B]">
-            {isLive || isPending ? "Live updates active" : "Current pipeline state"}
+            {simulationGenerationPaused
+              ? "Simulation generation paused while fact extraction is upgraded"
+              : isLive || isPending
+                ? "Live updates active"
+                : "Current pipeline state"}
           </p>
         </div>
         {canStartSimulation && (
@@ -147,7 +209,7 @@ export function PaperProcessingPanel({
             disabled={simState === "starting"}
             className="ml-auto rounded-md bg-[#1A1A1A] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#333] disabled:opacity-60"
           >
-            {simState === "starting" ? "Starting simulation..." : "Start simulation"}
+            {simState === "starting" ? "Starting simulation..." : simulationButtonLabel}
           </button>
         )}
       </div>
@@ -161,6 +223,8 @@ export function PaperProcessingPanel({
               ? "Extracting"
               : claimCount > 0
                 ? `${claimCount} extracted`
+                : hasGraphInput
+                  ? "Graph ready"
                 : extractionState === "failed"
                   ? "Failed"
                   : "Pending"
@@ -182,18 +246,37 @@ export function PaperProcessingPanel({
         />
         <Step
           label="Simulation"
-          detail={
-            simulationCount > 0
-              ? `${simulationCount} runs`
-              : simulationStepState === "current"
-                ? "Running"
-                : simulationStepState === "failed"
-                  ? "Failed"
-                  : "Ready after claims"
-          }
+          detail={simulationStepDetail}
           state={simulationStepState}
         />
       </div>
+
+      {latestSimulationJob && (
+        <div className="mt-3 rounded-md border border-[#E8E5DE] bg-[#FAFAF8] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#6B6B6B]">
+            <span className="font-mono text-[#3D3D3D]">
+              Codex job {latestSimulationJob.id.slice(0, 8)}
+            </span>
+            <span>{latestSimulationJob.state}</span>
+            <span>
+              {latestSimulationJob.completedUnits} complete /{" "}
+              {latestSimulationJob.failedUnits} failed /{" "}
+              {latestSimulationJob.totalUnits} total
+            </span>
+            {latestSimulationJob.startedAt && (
+              <span>started {formatUtcDateTime(latestSimulationJob.startedAt)}</span>
+            )}
+          </div>
+          {activeSimulationJob && latestSimulationJob.totalUnits > 0 && (
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E8E5DE]">
+              <div
+                className="h-full rounded-full bg-[#2D6A4F]"
+                style={{ width: `${Math.max(2, Math.min(jobPercent, 100))}%` }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="mt-3 rounded-md border border-[#9B2226]/20 bg-[#9B2226]/5 px-3 py-2 text-sm text-[#9B2226]">

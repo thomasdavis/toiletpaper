@@ -16,6 +16,7 @@ import { CollapsibleDetails } from "./collapsible-details";
 import { ClaimDontoInspect } from "./claim-donto-inspect";
 import { HelpTip } from "@/components/help-tip";
 import { DebugPanel } from "./debug-panel";
+import { normalizeVerdict, type Verdict } from "@/lib/verdict";
 
 interface Claim {
   id: string;
@@ -26,10 +27,14 @@ interface Claim {
   simulations: (typeof simulations.$inferSelect)[];
 }
 
-function mapVerdict(verdict: string | null) {
-  if (verdict === "confirmed") return "reproduced" as const;
-  if (verdict === "refuted") return "contradicted" as const;
-  return "undetermined" as const;
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
+
+function mapVerdict(sim: typeof simulations.$inferSelect): Verdict {
+  return normalizeVerdict(sim.verdict, sim.metadata, resultReason(sim.result));
 }
 
 function formatMethodName(method: string): string {
@@ -202,7 +207,7 @@ export async function ClaimCard({ claim }: { claim: Claim }) {
           <Stack gap={4}>
             {claim.simulations.map((sim) => {
               const result = extractResultFields(sim.result);
-              const verdict = mapVerdict(sim.verdict);
+              const verdict = mapVerdict(sim);
               const simConfidence = result.confidence;
 
               return (

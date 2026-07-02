@@ -3,8 +3,10 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import type { SimulationRow } from "./page";
+import { formatUtcMonthDay } from "@/lib/datetime";
+import { isSignal, VERDICT_DISPLAY } from "@/lib/verdict";
 
-type Tab = "all" | "reproduced" | "contradicted" | "inconclusive" | "fragile";
+type Tab = "all" | "reproduced" | "contradicted" | "inconclusive" | "fragile" | "no_signal";
 type SortKey = "date" | "confidence" | "verdict";
 type SortDir = "asc" | "desc";
 
@@ -13,6 +15,10 @@ const VERDICT_COLORS: Record<string, { bg: string; border: string; text: string 
   contradicted: { bg: "bg-[#F5D5D6]/30", border: "border-[#9B2226]/20", text: "text-[#9B2226]" },
   fragile: { bg: "bg-[#FFF3E0]/30", border: "border-[#E65100]/20", text: "text-[#E65100]" },
   inconclusive: { bg: "bg-[#F5ECD4]/30", border: "border-[#B07D2B]/20", text: "text-[#B07D2B]" },
+  not_applicable: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#8B8589]" },
+  vacuous: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#8B8589]" },
+  system_error: { bg: "bg-[#F5D5D6]/30", border: "border-[#9B2226]/20", text: "text-[#9B2226]" },
+  untested: { bg: "bg-[#F5F3EF]", border: "border-[#E8E5DE]", text: "text-[#8B8589]" },
 };
 
 function formatMethodName(method: string): string {
@@ -38,10 +44,16 @@ export function SimulationsTable({ rows, paperId }: Props) {
     contradicted: rows.filter((r) => r.verdict === "contradicted").length,
     inconclusive: rows.filter((r) => r.verdict === "inconclusive").length,
     fragile: rows.filter((r) => r.verdict === "fragile").length,
+    noSignal: rows.filter((r) => !isSignal(r.verdict)).length,
   }), [rows]);
 
   const filtered = useMemo(() => {
-    let result = tab === "all" ? rows : rows.filter((r) => r.verdict === tab);
+    let result =
+      tab === "all"
+        ? rows
+        : tab === "no_signal"
+          ? rows.filter((r) => !isSignal(r.verdict))
+          : rows.filter((r) => r.verdict === tab);
 
     result = [...result].sort((a, b) => {
       let cmp = 0;
@@ -68,6 +80,7 @@ export function SimulationsTable({ rows, paperId }: Props) {
     { key: "reproduced", label: "Reproduced", count: counts.reproduced },
     { key: "inconclusive", label: "Inconclusive", count: counts.inconclusive },
     { key: "fragile", label: "Fragile", count: counts.fragile },
+    { key: "no_signal", label: "No Signal", count: counts.noSignal },
   ];
 
   const handleSort = (key: SortKey) => {
@@ -158,7 +171,7 @@ export function SimulationsTable({ rows, paperId }: Props) {
 
                 {/* Verdict badge */}
                 <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors.text} ${colors.bg} border ${colors.border}`}>
-                  {row.verdict}
+                  {VERDICT_DISPLAY[row.verdict]?.label ?? row.verdict}
                 </span>
 
                 {/* Confidence */}
@@ -170,7 +183,7 @@ export function SimulationsTable({ rows, paperId }: Props) {
 
                 {/* Date */}
                 <span className="shrink-0 text-xs text-[#9B9B9B]">
-                  {new Date(row.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {formatUtcMonthDay(row.createdAt)}
                 </span>
               </button>
 

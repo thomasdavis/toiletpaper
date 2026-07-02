@@ -1,11 +1,23 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+import Link from "next/link";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { papers, claims, simulations } from "@toiletpaper/db";
-import { eq, asc } from "drizzle-orm";
+import { papers, simulations } from "@toiletpaper/db";
+import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { Container } from "@toiletpaper/ui";
+import { PaperTabs } from "@/components/paper-tabs";
+import {
+  AnnotatedPaper,
+  type AnnotatedClaim,
+} from "@/components/annotated-paper";
+import { isSignal, normalizeVerdict } from "@/lib/verdict";
+import { getCurrentSimulationsForPaper } from "@/lib/current-simulations";
+import { loadPaperText } from "@/lib/paper-text";
+
+type Simulation = typeof simulations.$inferSelect;
 
 export async function generateMetadata({
   params,
@@ -28,32 +40,20 @@ export async function generateMetadata({
     },
   };
 }
-import Link from "next/link";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { Container } from "@toiletpaper/ui";
-import { parseGs, getObject } from "@/lib/storage";
-import { PaperTabs } from "@/components/paper-tabs";
-import {
-  AnnotatedPaper,
-  type AnnotatedClaim,
-} from "@/components/annotated-paper";
 
-type Simulation = typeof simulations.$inferSelect;
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
 
-function mapVerdict(verdict: string | null, metadata?: unknown) {
-  if (metadata && typeof metadata === "object") {
-    const m = metadata as Record<string, unknown>;
-    if (typeof m.original_verdict === "string") {
-      const ov = m.original_verdict;
-      if (ov === "reproduced") return "reproduced" as const;
-      if (ov === "contradicted") return "contradicted" as const;
-      if (ov === "fragile") return "fragile" as const;
-    }
-  }
-  if (verdict === "confirmed") return "reproduced" as const;
-  if (verdict === "refuted") return "contradicted" as const;
-  return "inconclusive" as const;
+function mapVerdict(
+  verdict: string | null,
+  metadata?: unknown,
+  reason?: string | null,
+): AnnotatedClaim["verdict"] {
+  const normalized = normalizeVerdict(verdict, metadata, reason);
+  return isSignal(normalized) ? normalized : "untested";
 }
 
 function bestVerdict(sims: Simulation[]): string {
@@ -62,7 +62,7 @@ function bestVerdict(sims: Simulation[]): string {
     (a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-  return mapVerdict(sorted[0].verdict, sorted[0].metadata);
+  return mapVerdict(sorted[0].verdict, sorted[0].metadata, resultReason(sorted[0].result));
 }
 
 function extractResult(result: unknown) {
@@ -82,63 +82,6 @@ function extractResult(result: unknown) {
   };
 }
 
-async function decodeContent(
-  content: Buffer,
-  ext: string,
-): Promise<{ text: string; format: "markdown" | "plaintext" } | null> {
-  if (ext === "md" || ext === "markdown") {
-    return { text: content.toString("utf-8"), format: "markdown" };
-  }
-  if (ext === "pdf") {
-    try {
-      const { extractTextFromPdf } = await import("@toiletpaper/extractor");
-      const pdf = await extractTextFromPdf(content);
-      return { text: pdf.text, format: "plaintext" };
-    } catch {
-      return null;
-    }
-  }
-  return { text: content.toString("utf-8"), format: "plaintext" };
-}
-
-async function loadPaperText(
-  paper: { pdfUrl: string | null; title: string },
-): Promise<{ text: string; format: "markdown" | "plaintext" } | null> {
-  if (!paper.pdfUrl) return null;
-
-  // GCS-backed uploads — fetch via the metadata-server-authed helper.
-  const gs = parseGs(paper.pdfUrl);
-  if (gs) {
-    try {
-      const buf = await getObject(gs.bucket, gs.key);
-      const ext = gs.key.split(".").pop()?.toLowerCase() ?? "";
-      return await decodeContent(buf, ext);
-    } catch {
-      return null;
-    }
-  }
-
-  const filename = paper.pdfUrl.split("/").pop() ?? "";
-  const candidatePaths = [
-    join(process.cwd(), paper.pdfUrl.replace(/^\//, "")),
-    join(process.cwd(), "test", "fixtures", filename),
-    join(process.cwd(), "test", "fixtures", `${paper.title}.md`),
-    join(process.cwd(), "test", "fixtures", `${paper.title}.pdf`),
-  ];
-
-  for (const p of candidatePaths) {
-    try {
-      const content = await readFile(p);
-      const ext = p.split(".").pop()?.toLowerCase() ?? "";
-      const decoded = await decodeContent(content, ext);
-      if (decoded) return decoded;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
 export default async function AnnotatedPage({
   params,
 }: {
@@ -149,22 +92,9 @@ export default async function AnnotatedPage({
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) notFound();
 
-  const paperClaims = await db
-    .select()
-    .from(claims)
-    .where(eq(claims.paperId, id))
-    .orderBy(asc(claims.createdAt));
-
-  const claimIds = paperClaims.map((c) => c.id);
-  let sims: Simulation[] = [];
-  if (claimIds.length > 0) {
-    const allSims = await Promise.all(
-      claimIds.map((cid) =>
-        db.select().from(simulations).where(eq(simulations.claimId, cid)),
-      ),
-    );
-    sims = allSims.flat();
-  }
+  const { claims: paperClaims, simulations: sims } =
+    await getCurrentSimulationsForPaper(id);
+  paperClaims.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   // Load paper text
   const paperText = await loadPaperText(paper);

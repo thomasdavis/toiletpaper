@@ -63,7 +63,10 @@ const dotColor: Record<string, string> = {
   reproduced: "bg-[#2D6A4F]",
   contradicted: "bg-[#9B2226]",
   fragile: "bg-[#B07D2B]",
-  undetermined: "bg-[#6B6B6B]",
+  inconclusive: "bg-[#B07D2B]",
+  not_applicable: "bg-[#8B8589]",
+  vacuous: "bg-[#8B8589]",
+  system_error: "bg-[#9B2226]",
   untested: "bg-[#D4D0C8]",
 };
 

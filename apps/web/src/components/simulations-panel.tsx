@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { formatUtcDateTime } from "@/lib/datetime";
 import {
   VerdictBadge,
   Text,
@@ -11,14 +12,18 @@ import {
 } from "@toiletpaper/ui";
 import type { SerializedClaim, SerializedSimulation } from "./claim-drawer";
 import { EvidenceModeBadge } from "./claim-drawer";
+import { normalizeVerdict, type Verdict } from "@/lib/verdict";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function mapVerdict(verdict: string | null): "reproduced" | "contradicted" | "fragile" | "undetermined" {
-  if (verdict === "confirmed" || verdict === "reproduced") return "reproduced";
-  if (verdict === "refuted" || verdict === "contradicted") return "contradicted";
-  if (verdict === "fragile") return "fragile";
-  return "undetermined";
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
+
+function mapVerdict(sim: SerializedSimulation): Verdict {
+  return normalizeVerdict(sim.verdict, sim.metadata, resultReason(sim.result));
 }
 
 function formatMethodName(method: string): string {
@@ -64,7 +69,7 @@ function JsonKvGrid({ data, label }: { data: Record<string, unknown>; label: str
 
 function SimulationRow({ sim, claimText }: SimRowProps) {
   const [expanded, setExpanded] = useState(false);
-  const verdict = mapVerdict(sim.verdict);
+  const verdict = mapVerdict(sim);
   const result = sim.result as Record<string, unknown> | null;
   const reason = typeof result?.reason === "string" ? result.reason : null;
   const meta = sim.metadata as Record<string, unknown> | null;
@@ -241,7 +246,7 @@ function SimulationRow({ sim, claimText }: SimRowProps) {
 
             {/* Timestamp */}
             <Text size="xs" color="faint">
-              Ran: {new Date(sim.createdAt).toLocaleString()}
+              Ran: {formatUtcDateTime(sim.createdAt)}
             </Text>
 
             {/* Full result JSON (fallback) */}

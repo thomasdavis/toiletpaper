@@ -27,6 +27,10 @@ function hasExtractorProvider() {
   return Boolean(keyFile && existsSync(keyFile));
 }
 
+function queueDontoIngest() {
+  return process.env.DONTO_INGEST_LAUNCHER === "queue";
+}
+
 function inferType(name: string, mime: string): "pdf" | "markdown" | null {
   if (mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
   if (
@@ -61,10 +65,26 @@ async function processPaperExtraction(input: {
     const { extractClaimsFromText, extractorModel, extractorVersion } = await import(
       "@toiletpaper/extractor"
     );
-    const extraction = await extractClaimsFromText(
-      textForExtraction,
-      process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
-    );
+    let extraction;
+    try {
+      extraction = await extractClaimsFromText(
+        textForExtraction,
+        process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
+      );
+    } catch (claimErr) {
+      const msg = claimErr instanceof Error ? claimErr.message : String(claimErr);
+      console.warn(
+        "Compact claim extraction failed; continuing with rich Donto-agent extraction:",
+        msg,
+      );
+      extraction = {
+        title,
+        authors: [],
+        abstract: "",
+        claims: [],
+        relations: [],
+      };
+    }
 
     await db
       .insert(paperDontoIngest)
@@ -278,6 +298,13 @@ export async function POST(req: Request) {
       attempts: 0,
     })
     .onConflictDoNothing();
+
+  if (queueDontoIngest()) {
+    return NextResponse.json(
+      { id: paper.id, url: `/papers/${paper.id}`, status: "extracting" },
+      { status: 201 },
+    );
+  }
 
   void processPaperExtraction({
     paperId: paper.id,

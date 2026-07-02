@@ -13,8 +13,18 @@ const verdictVariants = cva(
           "border border-[var(--color-contradicted)]/20 bg-[var(--color-contradicted-light)] text-[var(--color-contradicted)]",
         fragile:
           "border border-[var(--color-fragile)]/20 bg-[var(--color-fragile-light)] text-[var(--color-fragile)]",
+        inconclusive:
+          "border border-[var(--color-fragile)]/20 bg-[var(--color-fragile-light)] text-[var(--color-fragile)]",
         undetermined:
           "border border-[var(--color-undetermined)]/20 bg-[var(--color-undetermined-light)] text-[var(--color-undetermined)]",
+        untested:
+          "border border-[var(--color-undetermined)]/20 bg-[var(--color-undetermined-light)] text-[var(--color-undetermined)]",
+        not_applicable:
+          "border border-[var(--color-not-simulable)]/20 bg-[var(--color-not-simulable-light)] text-[var(--color-not-simulable)]",
+        vacuous:
+          "border border-[var(--color-not-simulable)]/20 bg-[var(--color-not-simulable-light)] text-[var(--color-not-simulable)]",
+        system_error:
+          "border border-[var(--color-contradicted)]/20 bg-[var(--color-contradicted-light)] text-[var(--color-contradicted)]",
         "not-simulable":
           "border border-[var(--color-not-simulable)]/20 bg-[var(--color-not-simulable-light)] text-[var(--color-not-simulable)]",
       },
@@ -29,7 +39,12 @@ const verdictIcons: Record<string, string> = {
   reproduced: "✓",
   contradicted: "✗",
   fragile: "⚠",
+  inconclusive: "?",
   undetermined: "—",
+  untested: "—",
+  not_applicable: "∅",
+  vacuous: "∅",
+  system_error: "!",
   "not-simulable": "∅",
 };
 
@@ -45,7 +60,7 @@ export function VerdictBadge({
   return (
     <span className={cn(verdictVariants({ verdict, className }))} {...props}>
       <span aria-hidden="true">{verdictIcons[v]}</span>
-      {v.replace("-", " ")}
+      {v.replace(/[_-]/g, " ")}
     </span>
   );
 }

@@ -15,16 +15,46 @@ export function SimulationStream({ paperId }: { paperId: string }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const es = new EventSource(
-      `/api/papers/${paperId}/simulation-log?stream=1&after=0`,
-    );
-    es.onopen = () => setConnected(true);
-    es.onmessage = (e) => {
-      const event = JSON.parse(e.data) as LogEvent;
-      setEvents((prev) => [...prev.slice(-200), event]);
+    let cancelled = false;
+    let es: EventSource | null = null;
+
+    async function connect() {
+      let afterSeq = 0;
+      try {
+        const res = await fetch(
+          `/api/papers/${paperId}/simulation-log?tail=1&limit=80`,
+        );
+        if (res.ok) {
+          const data = (await res.json()) as { logs?: LogEvent[]; lastSeq?: number };
+          if (cancelled) return;
+          const logs = data.logs ?? [];
+          setEvents(logs);
+          afterSeq = data.lastSeq ?? logs[logs.length - 1]?.seq ?? 0;
+        }
+      } catch {
+        // Fall through to a live stream from seq 0.
+      }
+
+      if (cancelled) return;
+      es = new EventSource(
+        `/api/papers/${paperId}/simulation-log?stream=1&after=${afterSeq}`,
+      );
+      es.onopen = () => setConnected(true);
+      es.onmessage = (e) => {
+        const event = JSON.parse(e.data) as LogEvent;
+        setEvents((prev) => {
+          if (prev.some((existing) => existing.seq === event.seq)) return prev;
+          return [...prev.slice(-199), event];
+        });
+      };
+      es.onerror = () => setConnected(false);
+    }
+
+    void connect();
+    return () => {
+      cancelled = true;
+      es?.close();
     };
-    es.onerror = () => setConnected(false);
-    return () => es.close();
   }, [paperId]);
 
   useEffect(() => {
@@ -61,6 +91,10 @@ export function SimulationStream({ paperId }: { paperId: string }) {
 }
 
 function eventColor(type: string): string {
+  if (type === "job_started" || type === "job_finished") return "text-green-400";
+  if (type === "job_failed" || type === "codex_timeout") return "text-red-400";
+  if (type === "codex_progress") return "text-cyan-400";
+  if (type.startsWith("codex")) return "text-purple-300";
   if (type === "assistant") return "text-blue-400";
   if (type === "user") return "text-green-400";
   if (type === "tool_use") return "text-yellow-400";
@@ -70,6 +104,23 @@ function eventColor(type: string): string {
 
 function summarize(e: LogEvent): string {
   const p = e.payload;
+  if (e.eventType === "job_started") {
+    return `${p?.title ?? "Paper"} · ${p?.totalUnits ?? "?"} units · ${p?.workdir ?? ""}`;
+  }
+  if (e.eventType === "job_finished") {
+    return `finished · ingested=${p?.ingested ?? 0} failed=${p?.failed ?? 0} · ${p?.workdir ?? ""}`;
+  }
+  if (e.eventType === "job_failed") {
+    return String(p?.error ?? "job failed").slice(0, 160);
+  }
+  if (e.eventType === "codex_progress") {
+    return `${p?.message ?? "progress"} · completed=${p?.completed_units ?? 0} failed=${p?.failed_units ?? 0} current=${p?.current_unit_id ?? ""}`;
+  }
+  if (typeof p?.text === "string") return p.text.slice(0, 160);
+  if (typeof p?.message === "string") return p.message.slice(0, 160);
+  if (typeof p?.type === "string") {
+    return `${p.type} ${JSON.stringify(p).slice(0, 140)}`;
+  }
   if (p?.message?.content) {
     const blocks = p.message.content;
     if (Array.isArray(blocks)) {

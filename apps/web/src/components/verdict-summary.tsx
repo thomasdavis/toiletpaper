@@ -7,6 +7,7 @@ import {
   Text,
 } from "@toiletpaper/ui";
 import type { simulations } from "@toiletpaper/db";
+import { isSignal, normalizeVerdict } from "@/lib/verdict";
 
 type Simulation = typeof simulations.$inferSelect;
 
@@ -15,43 +16,42 @@ interface VerdictSummaryProps {
   totalClaims: number;
 }
 
-function mapVerdict(verdict: string | null) {
-  if (verdict === "confirmed") return "reproduced";
-  if (verdict === "refuted") return "contradicted";
-  return "undetermined";
+function resultReason(result: unknown): string | null {
+  return result && typeof result === "object" && result !== null
+    ? ((result as Record<string, unknown>).reason as string | null | undefined) ?? null
+    : null;
 }
 
 export function VerdictSummary({ simulations: sims, totalClaims }: VerdictSummaryProps) {
   if (sims.length === 0) return null;
 
-  // Count unique claims with simulations
-  const claimIds = new Set(sims.map((s) => s.claimId));
-  const testedCount = claimIds.size;
-
-  // Count by verdict (use the best verdict per claim)
+  // Count by signal verdict only. Meta rows such as not_applicable and
+  // untested are useful routing output, but they are not completed tests.
   const claimVerdicts = new Map<string, string>();
   for (const sim of sims) {
+    const mapped = normalizeVerdict(sim.verdict, sim.metadata, resultReason(sim.result));
+    if (!isSignal(mapped)) continue;
     const existing = claimVerdicts.get(sim.claimId);
-    const mapped = mapVerdict(sim.verdict);
-    // Priority: reproduced > contradicted > undetermined
+    // Priority: reproduced > contradicted > inconclusive
     if (!existing) {
       claimVerdicts.set(sim.claimId, mapped);
     } else if (mapped === "reproduced" && existing !== "reproduced") {
       claimVerdicts.set(sim.claimId, mapped);
-    } else if (mapped === "contradicted" && existing === "undetermined") {
+    } else if (mapped === "contradicted" && existing === "inconclusive") {
       claimVerdicts.set(sim.claimId, mapped);
     }
   }
 
   const reproduced = Array.from(claimVerdicts.values()).filter((v) => v === "reproduced").length;
   const contradicted = Array.from(claimVerdicts.values()).filter((v) => v === "contradicted").length;
-  const undetermined = Array.from(claimVerdicts.values()).filter((v) => v === "undetermined").length;
-  const untested = totalClaims - testedCount;
+  const inconclusive = Array.from(claimVerdicts.values()).filter((v) => v === "inconclusive").length;
+  const testedCount = claimVerdicts.size;
+  const noSignal = totalClaims - testedCount;
 
-  const total = reproduced + contradicted + undetermined;
+  const total = reproduced + contradicted + inconclusive;
   const reproducedPct = total > 0 ? (reproduced / total) * 100 : 0;
   const contradictedPct = total > 0 ? (contradicted / total) * 100 : 0;
-  const undeterminedPct = total > 0 ? (undetermined / total) * 100 : 0;
+  const inconclusivePct = total > 0 ? (inconclusive / total) * 100 : 0;
 
   return (
     <Card>
@@ -72,8 +72,8 @@ export function VerdictSummary({ simulations: sims, totalClaims }: VerdictSummar
               className="border-l-2 border-l-[#9B2226]"
             />
             <StatCard
-              label="Inconclusive"
-              value={undetermined + untested}
+              label="No Signal"
+              value={noSignal}
               className="border-l-2 border-l-[#6B6B6B]"
             />
           </div>
@@ -95,11 +95,11 @@ export function VerdictSummary({ simulations: sims, totalClaims }: VerdictSummar
                   title={`Contradicted: ${contradicted}`}
                 />
               )}
-              {undeterminedPct > 0 && (
+              {inconclusivePct > 0 && (
                 <div
                   className="bg-[#6B6B6B] transition-all"
-                  style={{ width: `${undeterminedPct}%` }}
-                  title={`Inconclusive: ${undetermined}`}
+                  style={{ width: `${inconclusivePct}%` }}
+                  title={`Inconclusive: ${inconclusive}`}
                 />
               )}
             </div>
@@ -114,7 +114,7 @@ export function VerdictSummary({ simulations: sims, totalClaims }: VerdictSummar
               </div>
               <div className="flex items-center gap-1">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#6B6B6B]" />
-                <span className="text-xs text-[#6B6B6B]">Inconclusive ({undetermined})</span>
+                <span className="text-xs text-[#6B6B6B]">Inconclusive ({inconclusive})</span>
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { papers, claims, simulations, replicationBlueprints, paperDontoIngest, routerDecisions } from "@toiletpaper/db";
+import { papers, claims, simulations, replicationBlueprints, replicationUnits, paperDontoIngest, routerDecisions } from "@toiletpaper/db";
 import { desc } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -11,6 +11,7 @@ import { PaperStatusBadge } from "@/components/paper-status-badge";
 import { DontoStatusPill } from "@/components/donto-status-pill";
 import { DontoContextInfo } from "@/components/donto-context-info";
 import { DontoDetails } from "@/components/donto-details";
+import { DontoExtractionLog } from "@/components/donto-extraction-log";
 import { VerdictSummary } from "@/components/verdict-summary";
 import { getHistory, getContexts } from "@/lib/donto";
 import {
@@ -27,6 +28,19 @@ import { SessionLogPanel } from "@/components/session-log-panel";
 import type { SerializedClaim, SerializedSimulation } from "@/components/claim-drawer";
 import { BlueprintPanel } from "@/components/blueprint-panel";
 import { PaperProcessingPanel } from "@/components/paper-processing-panel";
+import { isSignal, normalizeVerdict } from "@/lib/verdict";
+import { getCurrentSimulationsForPaper } from "@/lib/current-simulations";
+import { ReplicationReadiness } from "@/components/replication-readiness";
+import { summarizeReplicationReadiness } from "@/lib/replication-readiness";
+import { WholePaperCoverage } from "@/components/whole-paper-coverage";
+import { summarizeWholePaperCoverage } from "@/lib/whole-paper-coverage";
+import { ReplicationGapManifestPanel } from "@/components/replication-gap-manifest";
+import { summarizeReplicationGapManifest } from "@/lib/replication-gap-manifest";
+import { ArtifactBundlePanel } from "@/components/artifact-bundle-panel";
+import { loadPaperArtifactManifest } from "@/lib/paper-artifacts";
+import { summarizeArtifactGapCoverage } from "@/lib/artifact-gap-coverage";
+import { latestCodexReplicationDossier } from "@/lib/codex-replication-dossier";
+import { CodexReplicationDossierPanel } from "@/components/codex-replication-dossier";
 
 export async function generateMetadata({
   params,
@@ -45,12 +59,28 @@ export async function generateMetadata({
   };
 }
 
-function getClaimVerdict(sims: { verdict: string | null }[]): string {
+function resultReason(result: unknown): string | null {
+  return result && typeof result === "object" && result !== null
+    ? ((result as Record<string, unknown>).reason as string | null | undefined) ?? null
+    : null;
+}
+
+function normalizedSimulationVerdict(sim: {
+  verdict: string | null;
+  metadata?: unknown;
+  result?: unknown;
+}) {
+  return normalizeVerdict(sim.verdict, sim.metadata, resultReason(sim.result));
+}
+
+function getClaimVerdict(sims: (typeof simulations.$inferSelect)[]): string {
   if (sims.length === 0) return "untested";
-  if (sims.some((s) => s.verdict === "confirmed" || s.verdict === "reproduced")) return "reproduced";
-  if (sims.some((s) => s.verdict === "refuted" || s.verdict === "contradicted")) return "contradicted";
-  if (sims.some((s) => s.verdict === "fragile")) return "fragile";
-  return "inconclusive";
+  const verdicts = sims.map(normalizedSimulationVerdict);
+  if (verdicts.some((v) => v === "reproduced")) return "reproduced";
+  if (verdicts.some((v) => v === "contradicted")) return "contradicted";
+  if (verdicts.some((v) => v === "fragile")) return "fragile";
+  if (verdicts.some((v) => isSignal(v))) return "inconclusive";
+  return "untested";
 }
 
 function serializeSim(sim: typeof simulations.$inferSelect): SerializedSimulation {
@@ -92,15 +122,18 @@ export default async function PaperDetailPage({
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) notFound();
 
-  const paperClaims = await db.select().from(claims).where(eq(claims.paperId, id));
-  const claimIds = paperClaims.map((c) => c.id);
-  let sims: (typeof simulations.$inferSelect)[] = [];
-  if (claimIds.length > 0) {
-    const allSims = await Promise.all(
-      claimIds.map((cid) => db.select().from(simulations).where(eq(simulations.claimId, cid))),
-    );
-    sims = allSims.flat();
-  }
+  const {
+    claims: paperClaims,
+    simulations: sims,
+    latestJob: latestSimulationJob,
+  } = await getCurrentSimulationsForPaper(id);
+  const simulationLogLive =
+    latestSimulationJob?.state === "queued" ||
+    latestSimulationJob?.state === "running";
+  const showSimulationStream =
+    simulationLogLive ||
+    paper.status === "simulating" ||
+    paper.status === "extracted";
 
   // Fetch latest blueprint for this paper (only if on blueprint tab to avoid extra query)
   let blueprintData: unknown = null;
@@ -131,7 +164,10 @@ export default async function PaperDetailPage({
 
   // Fetch router decisions for this paper
   const routerRows = await db.select().from(routerDecisions).where(eq(routerDecisions.paperId, id));
-
+  const replicationUnitRows = await db
+    .select()
+    .from(replicationUnits)
+    .where(eq(replicationUnits.paperId, id));
   const paperIri = `tp:paper:${id}`;
   const claimsCtxIri = `tp:paper:${id}:claims`;
   const [dontoHistory, ctxData] = await Promise.all([getHistory(paperIri), getContexts()]);
@@ -142,13 +178,63 @@ export default async function PaperDetailPage({
     sims: sims.filter((s) => s.claimId === claim.id),
   }));
 
-  const tested = claimsWithSims.filter((c) => c.sims.length > 0).length;
+  const tested = claimsWithSims.filter((c) =>
+    c.sims.some((s) => isSignal(normalizedSimulationVerdict(s))),
+  ).length;
   const reproduced = claimsWithSims.filter((c) => getClaimVerdict(c.sims) === "reproduced").length;
   const contradicted = claimsWithSims.filter((c) => getClaimVerdict(c.sims) === "contradicted").length;
   const fragile = claimsWithSims.filter((c) => getClaimVerdict(c.sims) === "fragile").length;
 
   const serializedClaims: SerializedClaim[] = claimsWithSims.map((c) => serializeClaim(c.claim, c.sims));
   const serializedSims: SerializedSimulation[] = sims.map(serializeSim);
+  const claimById = new Map(paperClaims.map((claim) => [claim.id, claim]));
+  const readinessSummary = summarizeReplicationReadiness(
+    sims.map((sim) => ({
+      ...sim,
+      claimText: claimById.get(sim.claimId)?.text ?? null,
+      unitType: claimById.get(sim.claimId)?.predicate ?? null,
+    })),
+  );
+  const wholePaperCoverage = summarizeWholePaperCoverage({
+    dontoStatementCount: ingestRow?.statementCount ?? 0,
+    units: replicationUnitRows.map((unit) => ({
+      id: unit.id,
+      unitType: unit.unitType,
+      sourceStatementIds: unit.sourceStatementIds,
+      state: unit.state,
+    })),
+    simulations: sims,
+    latestJob: latestSimulationJob
+      ? {
+          id: latestSimulationJob.id,
+          state: latestSimulationJob.state,
+          totalUnits: latestSimulationJob.totalUnits,
+          completedUnits: latestSimulationJob.completedUnits,
+          failedUnits: latestSimulationJob.failedUnits,
+        }
+      : null,
+  });
+  const artifactManifest = summarizeReplicationGapManifest({
+    units: replicationUnitRows.map((unit) => ({
+      id: unit.id,
+      claimText: unit.claimText,
+      unitType: unit.unitType,
+      domain: unit.domain,
+      sourceStatementIds: unit.sourceStatementIds,
+      requiredArtifacts: unit.requiredArtifacts,
+      blockers: unit.blockers,
+    })),
+    simulations: sims.map((sim) => ({
+      ...sim,
+      claimText: claimById.get(sim.claimId)?.text ?? null,
+    })),
+  });
+  const artifactBundles = await loadPaperArtifactManifest(id).catch(() => null);
+  const artifactGapCoverage = summarizeArtifactGapCoverage({
+    gapManifest: artifactManifest,
+    artifactManifest: artifactBundles,
+  });
+  const codexDossier = await latestCodexReplicationDossier(id).catch(() => null);
 
   return (
     <div className="p-6 max-w-5xl">
@@ -182,10 +268,28 @@ export default async function PaperDetailPage({
         ingestState={ingestRow?.state}
         statementCount={ingestRow?.statementCount}
         lastErrorCode={ingestRow?.lastErrorCode}
+        simulationGenerationEnabled={
+          process.env.SIMULATION_GENERATION_ENABLED === "1" ||
+          process.env.NEXT_PUBLIC_SIMULATION_GENERATION_ENABLED === "1"
+        }
+        latestSimulationJob={
+          latestSimulationJob
+            ? {
+                id: latestSimulationJob.id,
+                state: latestSimulationJob.state,
+                totalUnits: latestSimulationJob.totalUnits,
+                completedUnits: latestSimulationJob.completedUnits,
+                failedUnits: latestSimulationJob.failedUnits,
+                startedAt: latestSimulationJob.startedAt?.toISOString() ?? null,
+                finishedAt: latestSimulationJob.finishedAt?.toISOString() ?? null,
+                errorSummary: latestSimulationJob.errorSummary,
+              }
+            : null
+        }
       />
 
 
-      {(paper.status === "simulating" || paper.status === "extracted") && (
+      {showSimulationStream && (
         <div className="mb-6"><SimulationStream paperId={id} /></div>
       )}
 
@@ -198,6 +302,13 @@ export default async function PaperDetailPage({
             <StatCard label="Contradicted" value={contradicted} className="border-l-2 border-l-[#9B2226] ring-1 ring-[#9B2226]/20" />
             <StatCard label="Fragile" value={fragile} className="border-l-2 border-l-[#B07D2B]" />
           </div>
+
+          <WholePaperCoverage summary={wholePaperCoverage} />
+          <CodexReplicationDossierPanel
+            dossier={codexDossier}
+            apiHref={`/api/papers/${id}/replication-dossier`}
+          />
+          <ArtifactBundlePanel paperId={id} />
 
           {/* Paper Metadata */}
           <div className="rounded-lg border border-[#E8E5DE] bg-white p-4">
@@ -295,6 +406,10 @@ export default async function PaperDetailPage({
                   </div>
                 </details>
               )}
+              <DontoExtractionLog
+                paperId={id}
+                isLive={ingestRow.state === "queued" || ingestRow.state === "running"}
+              />
             </div>
           )}
 
@@ -323,6 +438,14 @@ export default async function PaperDetailPage({
           )}
 
           {sims.length > 0 && <VerdictSummary simulations={sims} totalClaims={paperClaims.length} />}
+          {sims.length > 0 && <ReplicationReadiness summary={readinessSummary} />}
+          {sims.length > 0 && (
+            <ReplicationGapManifestPanel
+              manifest={artifactManifest}
+              apiHref={`/api/papers/${id}/artifact-manifest`}
+              artifactCoverage={artifactGapCoverage}
+            />
+          )}
           {paper.abstract && (
             <CollapsibleDetails summary="Full Abstract">
               <Text size="sm" color="light" leading="relaxed">{paper.abstract}</Text>
@@ -364,7 +487,10 @@ export default async function PaperDetailPage({
       )}
 
       {activeTab === "session" && (
-        <SessionLogPanel paperId={id} isLive={paper.status === "simulating"} />
+        <SessionLogPanel
+          paperId={id}
+          isLive={simulationLogLive || paper.status === "simulating"}
+        />
       )}
 
       <div className="mt-8">

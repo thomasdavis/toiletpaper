@@ -13,12 +13,14 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "smoke:upload": "bash scripts/smoke-upload-paper.sh",
     "test:integration": "vitest run --config vitest.integration.ts",
     "clean": "turbo run clean && rm -rf node_modules",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push"
   },
   "devDependencies": {
+    "@types/node": "^22.19.17",
     "pdfkit": "^0.18.0",
     "tsx": "^4.21.0",
     "turbo": "^2.9.6",

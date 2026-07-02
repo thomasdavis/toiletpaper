@@ -7,6 +7,11 @@ export {
   type ExtractionResult,
 } from "./llm";
 export { ingestPaperIntoDonto, type IngestResult } from "./ingest";
+export {
+  extractRichFactsWithDontoAgent,
+  splitDontoAgentText,
+  type DontoAgentExtractionResult,
+} from "./donto-agent";
 
 export async function extractPaper(
   pdfBuffer: Buffer,

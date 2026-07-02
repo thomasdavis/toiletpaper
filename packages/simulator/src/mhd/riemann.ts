@@ -125,7 +125,7 @@ function fastSpeed(rho: number, p: number, bn: number, b2: number, gamma: number
 
 function computeFluxX(
   u: Float64Array,
-  p: number,
+  _p: number,
   pt: number,
   vx: number,
   vy: number,
@@ -147,7 +147,7 @@ function computeFluxX(
 
 function computeFluxY(
   u: Float64Array,
-  p: number,
+  _p: number,
   pt: number,
   vx: number,
   vy: number,

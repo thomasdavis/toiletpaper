@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { papers, claims, simulations } from "@toiletpaper/db";
+import { papers, simulations, paperDontoIngest, replicationUnits } from "@toiletpaper/db";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
@@ -41,6 +41,18 @@ import { DebugPanel } from "@/components/debug-panel";
 import { PaperTabs } from "@/components/paper-tabs";
 import { SignalBar } from "@/components/brand";
 import { summarizeVerdicts, normalizeVerdict } from "@/lib/verdict";
+import { getCurrentSimulationsForPaper } from "@/lib/current-simulations";
+import { ReplicationReadiness } from "@/components/replication-readiness";
+import { summarizeReplicationReadiness } from "@/lib/replication-readiness";
+import { WholePaperCoverage } from "@/components/whole-paper-coverage";
+import { summarizeWholePaperCoverage } from "@/lib/whole-paper-coverage";
+import { ReplicationGapManifestPanel } from "@/components/replication-gap-manifest";
+import { summarizeReplicationGapManifest } from "@/lib/replication-gap-manifest";
+import { ArtifactBundlePanel } from "@/components/artifact-bundle-panel";
+import { loadPaperArtifactManifest } from "@/lib/paper-artifacts";
+import { summarizeArtifactGapCoverage } from "@/lib/artifact-gap-coverage";
+import { latestCodexReplicationDossier } from "@/lib/codex-replication-dossier";
+import { CodexReplicationDossierPanel } from "@/components/codex-replication-dossier";
 
 type Simulation = typeof simulations.$inferSelect;
 
@@ -52,17 +64,26 @@ function mapVerdict(
   return normalizeVerdict(verdict, metadata, reason ?? undefined);
 }
 
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
+
 function bestVerdict(sims: Simulation[]): { verdict: string; conflicting: boolean } {
   if (sims.length === 0) return { verdict: "untested", conflicting: false };
   // Use most recent simulation's verdict
   const sorted = [...sims].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
-  const verdicts = sims.map((s) => mapVerdict(s.verdict, s.metadata));
+  const verdicts = sims.map((s) => mapVerdict(s.verdict, s.metadata, resultReason(s.result)));
   const hasReproduced = verdicts.includes("reproduced");
   const hasContradicted = verdicts.includes("contradicted");
   const conflicting = hasReproduced && hasContradicted;
-  return { verdict: mapVerdict(sorted[0].verdict, sorted[0].metadata), conflicting };
+  return {
+    verdict: mapVerdict(sorted[0].verdict, sorted[0].metadata, resultReason(sorted[0].result)),
+    conflicting,
+  };
 }
 
 function extractResult(result: unknown) {
@@ -125,16 +146,17 @@ export default async function ReportPage({
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) notFound();
 
-  const paperClaims = await db.select().from(claims).where(eq(claims.paperId, id)).orderBy(asc(claims.createdAt));
-
-  const claimIds = paperClaims.map((c) => c.id);
-  let sims: Simulation[] = [];
-  if (claimIds.length > 0) {
-    const allSims = await Promise.all(
-      claimIds.map((cid) => db.select().from(simulations).where(eq(simulations.claimId, cid))),
-    );
-    sims = allSims.flat();
-  }
+  const [
+    { claims: paperClaims, simulations: sims, latestJob: latestSimulationJob },
+    replicationUnitRows,
+    dontoIngestRows,
+  ] = await Promise.all([
+    getCurrentSimulationsForPaper(id),
+    db.select().from(replicationUnits).where(eq(replicationUnits.paperId, id)),
+    db.select().from(paperDontoIngest).where(eq(paperDontoIngest.paperId, id)),
+  ]);
+  const dontoIngestRow = dontoIngestRows[0] ?? null;
+  paperClaims.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   const reportClaims: ReportClaim[] = paperClaims.map((claim) => {
     const claimSims = sims.filter((s) => s.claimId === claim.id);
@@ -149,7 +171,7 @@ export default async function ReportPage({
         const r = extractResult(s.result);
         return {
           method: s.method.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-          verdict: mapVerdict(s.verdict, s.metadata),
+          verdict: mapVerdict(s.verdict, s.metadata, r.reason),
           reason: r.reason,
           measured: r.measured,
           expected: r.expected,
@@ -176,6 +198,54 @@ export default async function ReportPage({
   const analysisDate = latestSim
     ? new Date(latestSim.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
     : "Pending";
+  const claimById = new Map(paperClaims.map((claim) => [claim.id, claim]));
+  const readinessSummary = summarizeReplicationReadiness(
+    sims.map((sim) => ({
+      ...sim,
+      claimText: claimById.get(sim.claimId)?.text ?? null,
+      unitType: claimById.get(sim.claimId)?.predicate ?? null,
+    })),
+  );
+  const wholePaperCoverage = summarizeWholePaperCoverage({
+    dontoStatementCount: dontoIngestRow?.statementCount ?? 0,
+    units: replicationUnitRows.map((unit) => ({
+      id: unit.id,
+      unitType: unit.unitType,
+      sourceStatementIds: unit.sourceStatementIds,
+      state: unit.state,
+    })),
+    simulations: sims,
+    latestJob: latestSimulationJob
+      ? {
+          id: latestSimulationJob.id,
+          state: latestSimulationJob.state,
+          totalUnits: latestSimulationJob.totalUnits,
+          completedUnits: latestSimulationJob.completedUnits,
+          failedUnits: latestSimulationJob.failedUnits,
+        }
+      : null,
+  });
+  const artifactManifest = summarizeReplicationGapManifest({
+    units: replicationUnitRows.map((unit) => ({
+      id: unit.id,
+      claimText: unit.claimText,
+      unitType: unit.unitType,
+      domain: unit.domain,
+      sourceStatementIds: unit.sourceStatementIds,
+      requiredArtifacts: unit.requiredArtifacts,
+      blockers: unit.blockers,
+    })),
+    simulations: sims.map((sim) => ({
+      ...sim,
+      claimText: claimById.get(sim.claimId)?.text ?? null,
+    })),
+  });
+  const artifactBundles = await loadPaperArtifactManifest(id).catch(() => null);
+  const artifactGapCoverage = summarizeArtifactGapCoverage({
+    gapManifest: artifactManifest,
+    artifactManifest: artifactBundles,
+  });
+  const codexDossier = await latestCodexReplicationDossier(id).catch(() => null);
 
   return (
     <Container>
@@ -204,6 +274,23 @@ export default async function ReportPage({
           totalClaims={paperClaims.length}
           className="rounded-xl border border-[#E8E5DE] bg-white p-5 shadow-sm"
         />
+
+        <WholePaperCoverage summary={wholePaperCoverage} />
+
+        <CodexReplicationDossierPanel
+          dossier={codexDossier}
+          apiHref={`/api/papers/${id}/replication-dossier`}
+        />
+
+        <ReplicationReadiness summary={readinessSummary} />
+
+        <ReplicationGapManifestPanel
+          manifest={artifactManifest}
+          apiHref={`/api/papers/${id}/artifact-manifest`}
+          artifactCoverage={artifactGapCoverage}
+        />
+
+        <ArtifactBundlePanel paperId={id} />
 
         {/* Tabbed claim view */}
         <ReportTabs claims={reportClaims} counts={counts} />

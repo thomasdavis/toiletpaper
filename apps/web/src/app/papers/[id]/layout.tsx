@@ -3,13 +3,23 @@ import { papers, claims, simulations, simulationLogs, replicationBlueprints } fr
 import { eq, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { PaperSidebar } from "@/components/paper-sidebar";
+import { isSignal, normalizeVerdict } from "@/lib/verdict";
+import { getCurrentSimulationsForPaper } from "@/lib/current-simulations";
 
-function getClaimVerdict(sims: { verdict: string | null }[]): string {
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
+
+function getClaimVerdict(sims: (typeof simulations.$inferSelect)[]): string {
   if (sims.length === 0) return "untested";
-  if (sims.some((s) => s.verdict === "confirmed" || s.verdict === "reproduced")) return "reproduced";
-  if (sims.some((s) => s.verdict === "refuted" || s.verdict === "contradicted")) return "contradicted";
-  if (sims.some((s) => s.verdict === "fragile")) return "fragile";
-  return "inconclusive";
+  const verdicts = sims.map((s) => normalizeVerdict(s.verdict, s.metadata, resultReason(s.result)));
+  if (verdicts.some((v) => v === "reproduced")) return "reproduced";
+  if (verdicts.some((v) => v === "contradicted")) return "contradicted";
+  if (verdicts.some((v) => v === "fragile")) return "fragile";
+  if (verdicts.some((v) => isSignal(v))) return "inconclusive";
+  return "untested";
 }
 
 export default async function PaperLayout({
@@ -23,15 +33,8 @@ export default async function PaperLayout({
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) notFound();
 
-  const paperClaims = await db.select().from(claims).where(eq(claims.paperId, id));
-  const claimIds = paperClaims.map((c) => c.id);
-  let sims: (typeof simulations.$inferSelect)[] = [];
-  if (claimIds.length > 0) {
-    const allSims = await Promise.all(
-      claimIds.map((cid) => db.select().from(simulations).where(eq(simulations.claimId, cid))),
-    );
-    sims = allSims.flat();
-  }
+  const { claims: paperClaims, simulations: sims } =
+    await getCurrentSimulationsForPaper(id);
 
   const claimsWithSims = paperClaims.map((c) => ({
     sims: sims.filter((s) => s.claimId === c.id),

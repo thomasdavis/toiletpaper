@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { papers, claims, simulations, routerDecisions, replicationUnits } from "@toiletpaper/db";
+import { papers, claims, simulations } from "@toiletpaper/db";
 import { eq } from "drizzle-orm";
 import { getHistory } from "@/lib/donto";
 import { DONTOSRV_URL } from "@toiletpaper/donto-client";
@@ -11,9 +11,15 @@ import {
 } from "@toiletpaper/donto-client/evidence";
 import { ensurePaperDomain, isPhysicsDomain } from "@/lib/router/classify";
 import {
-  buildReplicationUnitsFromDonto,
-  type DontoStatementInput,
-} from "@toiletpaper/simulator";
+  buildGraphReplicationPlan,
+  materializeClaimsForReplicationUnits,
+  persistReplicationUnitsForPaper,
+  replaceGraphSimulationRows,
+} from "@/lib/graph-replication";
+import {
+  codexFullPaperConfig,
+  startCodexFullPaperReplicationJob,
+} from "@/lib/codex-replication-job";
 
 /** Assert simulation verdict quads into donto for a claim. */
 async function ingestVerdictToDonto(
@@ -132,9 +138,98 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "paper_id is required" }, { status: 400 });
   }
 
+  if (process.env.SIMULATION_GENERATION_ENABLED !== "1") {
+    return NextResponse.json(
+      {
+        error:
+          "Simulation generation is paused while the Donto fact extraction pipeline is being upgraded.",
+      },
+      { status: 503 },
+    );
+  }
+
   const [paper] = await db.select().from(papers).where(eq(papers.id, body.paper_id));
   if (!paper) {
     return NextResponse.json({ error: "paper not found" }, { status: 404 });
+  }
+
+  try {
+    const graphPlan = await buildGraphReplicationPlan(paper.id);
+    if (graphPlan.units.length > 0) {
+      await db
+        .update(papers)
+        .set({ status: "simulating", updatedAt: new Date() })
+        .where(eq(papers.id, paper.id));
+
+      await persistReplicationUnitsForPaper(graphPlan.units);
+      const materializedClaimIds = await materializeClaimsForReplicationUnits(graphPlan.units);
+      const simulationResult = await replaceGraphSimulationRows(graphPlan.units);
+      const codexJob = await startCodexFullPaperReplicationJob(
+        paper.id,
+        graphPlan.units.length,
+      );
+
+      await db
+        .update(papers)
+        .set({
+          status: codexJob.enabled ? "simulating" : "done",
+          updatedAt: new Date(),
+        })
+        .where(eq(papers.id, paper.id));
+
+      const byType = graphPlan.units.reduce<Record<string, number>>((acc, unit) => {
+        acc[unit.unitType] = (acc[unit.unitType] ?? 0) + 1;
+        return acc;
+      }, {});
+      const byPlannerState = graphPlan.units.reduce<Record<string, number>>((acc, unit) => {
+        acc[unit.state] = (acc[unit.state] ?? 0) + 1;
+        return acc;
+      }, {});
+      const byExecutionState = simulationResult.executions.reduce<Record<string, number>>((acc, item) => {
+        acc[item.execution.state] = (acc[item.execution.state] ?? 0) + 1;
+        return acc;
+      }, {});
+      const byExecutionVerdict = simulationResult.executions.reduce<Record<string, number>>((acc, item) => {
+        acc[item.execution.verdict] = (acc[item.execution.verdict] ?? 0) + 1;
+        return acc;
+      }, {});
+      const byEvidenceMode = simulationResult.executions.reduce<Record<string, number>>((acc, item) => {
+        acc[item.execution.evidenceMode] = (acc[item.execution.evidenceMode] ?? 0) + 1;
+        return acc;
+      }, {});
+      return NextResponse.json({
+        mode: "donto_graph",
+        context: graphPlan.context,
+        statementsScanned: graphPlan.statements.length,
+        unitsCreated: graphPlan.units.length,
+        materializedClaims: materializedClaimIds.length,
+        simulationsCreated: simulationResult.rowsCreated,
+        summary: {
+          total: graphPlan.units.length,
+          byType,
+          byPlannerState,
+          byExecutionState,
+          byExecutionVerdict,
+          byEvidenceMode,
+          codexFullPaper: {
+            ...codexFullPaperConfig(),
+            job: codexJob,
+          },
+          reproduced: byExecutionVerdict.reproduced ?? 0,
+          contradicted: byExecutionVerdict.contradicted ?? 0,
+          fragile: byExecutionVerdict.fragile ?? 0,
+          inconclusive: byExecutionVerdict.inconclusive ?? 0,
+          notApplicable: byExecutionVerdict.not_applicable ?? 0,
+          untested: byExecutionVerdict.untested ?? 0,
+          systemError: byExecutionVerdict.system_error ?? 0,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn(
+      "Donto graph simulation planning failed; falling back to compact claims:",
+      e instanceof Error ? e.message : String(e),
+    );
   }
 
   const paperClaims = await db.select().from(claims).where(eq(claims.paperId, body.paper_id));

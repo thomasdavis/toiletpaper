@@ -41,6 +41,17 @@ export {
   type ReplicationUnit,
   type ReplicationUnitType,
 } from "./replication";
+export {
+  executeReplicationUnit,
+  executeReplicationUnits,
+  type DigitalPhysicsConstraint,
+  type DigitalPhysicsQuantity,
+  type DigitalPhysicsWorld,
+  type ReplicationAgentResult,
+  type ReplicationEvidenceMode,
+  type ReplicationExecutionState,
+  type ReplicationExecutionVerdict,
+} from "./agents";
 
 import type { TestableClaim, ClaimVerdict } from "./schema";
 import { triageClaims } from "./triage";

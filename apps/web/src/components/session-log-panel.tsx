@@ -579,7 +579,7 @@ export function SessionLogPanel({ paperId, isLive = false }: Props) {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/papers/${paperId}/simulation-log?after=0`,
+          `/api/papers/${paperId}/simulation-log?tail=1&limit=200`,
         );
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
@@ -588,8 +588,7 @@ export function SessionLogPanel({ paperId, isLive = false }: Props) {
         setEvents(logs);
         if (logs.length > 0) {
           setFirstSeq(logs[0].seq);
-          // The API returns max 200; if we got 200, there might be more
-          setHasMore(logs.length >= 200);
+          setHasMore(Boolean(data.hasMore));
         }
       } catch {
         // silent
@@ -648,21 +647,16 @@ export function SessionLogPanel({ paperId, isLive = false }: Props) {
     if (!firstSeq || firstSeq <= 1 || loadingMore) return;
     setLoadingMore(true);
     try {
-      // We want events before firstSeq. The API only supports after=N,
-      // so we fetch from 0 and cap at firstSeq-1
-      const wantAfter = Math.max(0, firstSeq - 201);
       const res = await fetch(
-        `/api/papers/${paperId}/simulation-log?after=${wantAfter}`,
+        `/api/papers/${paperId}/simulation-log?before=${firstSeq}&limit=200`,
       );
       if (!res.ok) return;
       const data = await res.json();
-      const logs: LogEvent[] = (data.logs ?? []).filter(
-        (l: LogEvent) => l.seq < firstSeq,
-      );
+      const logs: LogEvent[] = data.logs ?? [];
       if (logs.length > 0) {
         setEvents((prev) => [...logs, ...prev]);
         setFirstSeq(logs[0].seq);
-        setHasMore(logs[0].seq > 1);
+        setHasMore(Boolean(data.hasMore));
       } else {
         setHasMore(false);
       }

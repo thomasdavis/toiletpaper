@@ -2,8 +2,9 @@
 
 | | |
 |---|---|
-| Status | Draft |
+| Status | Partially implemented |
 | Created | 2026-05-03 |
+| Updated | 2026-06-18 |
 | Owner | toiletpaper engine |
 | Related | PRD-001, PRD-002, PRD-004, PRD-005, PRD-006 |
 
@@ -86,12 +87,219 @@ Already present:
 - `docs/prd/PRD-005`: Donto reliability and evidence-substrate repair.
 - `docs/prd/PRD-006`: async job pipeline and re-run support.
 
+Implemented through 2026-06-13:
+
+- `packages/extractor/src/donto-agent.ts` runs GLM-backed `donto-agent`
+  extraction after compact claim extraction, with retry/backoff,
+  denser overlapping scientific-paper chunks, and per-paper JSONL
+  extraction logs.
+- `apps/web/src/lib/donto-statements.ts` reads current paper-context
+  statements directly from `DONTO_DSN`.
+- `apps/web/src/lib/graph-replication.ts` builds replication plans from
+  Donto statements, persists `replication_units`, materializes
+  graph-derived `claims`, and writes graph-fed simulation rows with
+  deterministic replication-agent verdicts.
+- `packages/simulator/src/agents.ts` builds a digital-physics world
+  model for each replication unit and runs registered deterministic
+  agents for artifact availability, dataset integrity, numeric
+  constraint checks, metric recomputation readiness, baseline contrast,
+  and statistical feasibility.
+- `packages/simulator/src/replication.ts` maps real Donto-agent
+  predicates into replication unit types such as `metric_recompute`,
+  `baseline_contrast`, `dataset_integrity`, `artifact_availability`,
+  `equation_check`, `statistical_significance`, and `simulation`.
+  Since 2026-06-18, it also preserves every non-bibliographic,
+  non-provenance Donto statement as a replication unit. Statements that
+  do not match a specialized deterministic verifier become
+  `human_review` units with an explicit blocker instead of being
+  dropped from paper coverage.
+- `POST /api/papers/{id}/replication` now scans the Donto graph and
+  persists units.
+- `POST /api/simulate` prefers graph-fed simulation when Donto
+  statements exist, starts an async Codex full-paper replication job
+  when enabled, and falls back to the compact claim simulator only when
+  the graph path is unavailable.
+- `scripts/run-codex-replication-job.ts` runs hour-scale full-paper
+  Codex replication outside the request path. It streams Codex JSON
+  events to `simulation_logs`, writes `codex-events.jsonl`,
+  `codex-stderr.log`, `toiletpaper-job-events.jsonl`, `progress.json`,
+  `paper-source.pdf`, `paper-text.txt`, `donto-statements.json`,
+  `replication-units.json`, and `results.json` under
+  `$SIMULATOR_WORKDIR/codex-full-paper/{paper_id}/{job_id}`, and runs
+  Codex non-ephemerally so `~/.codex` retains its normal session/log
+  state. The runner stages the whole current Donto paper context for
+  Codex and records partial jobs when `results.json` omits replication
+  units.
+- `CODEX_JOB_LAUNCHER=queue` plus
+  `toiletpaper-codex-worker.service` moves hour-scale Codex processes
+  into a separate systemd service. The web API enqueues
+  `simulation_jobs`; the worker leases queued rows and runs
+  `scripts/run-codex-replication-job.ts`, so web deploys do not kill
+  active replications.
+- `scripts/ingest-codex-results.ts` recovers completed workdirs that
+  already contain `results.json` if a worker was interrupted before
+  database finalization.
+- `GET /api/papers/{id}/simulation-log` supports live SSE plus
+  bounded `tail`, `before`, and `limit` polling. The paper page opens
+  on the latest events, can page backward through long Codex sessions,
+  and no longer has to replay the entire event stream from seq 1.
+- `/papers/{id}` reads the latest `simulation_jobs` row and surfaces a
+  durable Codex job summary in the processing panel: queued/running/
+  succeeded state, total units, completed units, failed units, and
+  start time.
+- Paper pages and paper APIs use `currentSimulations(...)` as the
+  default read model. The latest Codex full-paper job supersedes older
+  Codex rows and deterministic graph placeholders for matching
+  replication units, while historical rows remain in Postgres for audit
+  and recovery.
+- Paper overview/report pages and `/api/papers/{id}/full` expose
+  `wholePaperCoverage`, a unit-based summary keyed by persisted
+  `replication_units` rather than compact claim rows. It reports Donto
+  statement count, source statements represented in units, covered units,
+  missing unit results, unit type distribution, verdicts, evidence modes,
+  and latest Codex job state.
+- Replication readiness treats `inconclusive` results with
+  `insufficient` evidence as blocked. This keeps missing raw data,
+  images, trajectories, code, configs, and other faithful-replication
+  artifacts visible instead of undercounting them as merely neutral
+  current results.
+- Paper overview/report pages and APIs expose a Missing Artifact
+  Manifest. `/api/papers/{id}/artifact-manifest` returns the
+  machine-readable manifest, and `/api/papers/{id}/full` embeds it as
+  `artifactManifest`. The manifest groups blocked current results into
+  concrete artifact requests such as MD input decks, potential files,
+  atomistic structures, trajectories, microscopy images, raw
+  measurements, fitting artifacts, clean source, Monte Carlo code,
+  datasets, configs, seeds, and artifact URLs. Generic boilerplate
+  limitations are filtered before counting request kinds.
+- Supplemental artifact bundles now let operators respond to that
+  manifest without leaving the paper. `GET /api/papers/{id}/artifact-bundles`
+  lists uploaded source bundles, and `POST` accepts multipart files,
+  public HTTP(S) artifact URLs, and an optional note. URL imports reject
+  credentials, non-HTTP schemes, and localhost/private-network
+  addresses. Files are stored under
+  `$PAPER_ARTIFACTS_DIR/{paper_id}/` or
+  `$SIMULATOR_WORKDIR/paper-artifacts/{paper_id}/` with original names,
+  sanitized names, byte lengths, content types, source provenance, final
+  fetched URLs/status, and SHA-256 hashes. Each stored file is
+  retrievable by manifest ID at
+  `/api/papers/{id}/artifact-bundles/{bundleId}/files/{fileId}`, with
+  response headers carrying bundle/file IDs, source kind, content type,
+  content length, and SHA-256. Each Codex full-paper job stages the
+  bundles into
+  `supplemental-artifacts/`, writes `supplemental-artifacts.json`, and
+  instructs Codex to inspect those files before marking units blocked
+  for missing datasets, code, input decks, trajectories, images,
+  measurements, or configuration.
+- Missing-artifact APIs now include `artifactGapCoverage`, a candidate
+  map from stored artifact files back to request kinds. It uses file
+  names, content types, bundle notes, URL provenance, and common
+  scientific extensions to identify likely matches. Candidate coverage
+  is deliberately not a verdict; it only prioritizes files for Codex or
+  human inspection on the next replication run.
+- `/api/papers/{id}/replication-dossier` and the paper overview/report
+  pages now audit the latest Codex full-paper workdir. The dossier checks
+  required input manifests, runtime traces, `results.json`,
+  `coverage_report.json`, generated experiment artifacts, result-unit
+  coverage, and coverage-report/result consistency, so a full-paper job
+  is visible as an operational artifact trail rather than only a set of
+  database verdict rows. `/api/papers/{id}/full` embeds the same object
+  as `replicationDossier`; files already listed by the latest dossier
+  are downloadable at
+  `/api/papers/{id}/replication-dossier/files/{relativePath}`, including
+  generated `src/` code and `experiments/` outputs. The dossier records
+  SHA-256 hashes for files up to the configured hash-size cap, and file
+  downloads return the hash when it was computed. New Codex jobs also
+  write `replication-dossier-snapshot.json` at job finish; future
+  `auditable` status requires that frozen snapshot as an output.
+- UI verdict summaries separate signal verdicts from meta verdicts so
+  `untested` and `not_applicable` graph rows appear as "No Signal" and
+  do not inflate tested/reproduced/contradicted counts.
+
+Validation snapshot, 2026-06-13:
+
+- Paper: `c75b96b4-5c8e-4a8f-bf4c-2af6ba7423d9`, "Perch 2.0
+  transfers whale to underwater tasks".
+- Rich Donto ingest: 2,354 live statements in
+  `tp:paper:{id}:claims`, generated from 9 GLM/donto-agent chunks
+  with 1,339 rich facts, 816 anchored facts, and 2,315 evidence links.
+- Graph planner: 401 replication units from the Donto context
+  (`artifact_availability` 74, `baseline_contrast` 64,
+  `dataset_integrity` 59, `equation_check` 68,
+  `metric_recompute` 97, `statistical_significance` 39).
+- Codex full-paper job `743af9ad-b97b-4ffd-bfef-ff306d5d15c8`
+  staged the source PDF/text, generated a Python replication harness,
+  parsed Table 1 and Table 2, probed the Hoplite GitHub artifact, and
+  ingested 401 unit results with zero system failures.
+- Final job verdicts: 141 reproduced, 10 fragile, 2 contradicted, 248
+  inconclusive/blocked. The blocked units are primarily honest metric
+  recomputation/performance-comparison claims requiring raw audio,
+  labels/splits, seeds, embeddings/checkpoints, and exact configs.
+
+Validation snapshot, 2026-06-17:
+
+- The Perch 2.0 whale paper lifecycle is now evidence-based end to end:
+  6 of 11 stages complete, 4 partial, and 1 blocked.
+- Production-run provenance is complete for that paper:
+  2,637/2,637 active statements are linked to extraction or simulation
+  production runs after the metadata and simulation provenance
+  backfills.
+- Latest Codex result rows now have Donto `tp:simulationVerdict` and
+  `tp:verdictReason` statements linked to a production run keyed by job
+  `743af9ad-b97b-4ffd-bfef-ff306d5d15c8`, with evidence metadata
+  pointing back to simulation rows, replication units, artifacts, and
+  the workdir.
+- Partial stages remain honest readiness signals rather than failures:
+  1,374/2,637 statements are span anchored, 173/2,637 have shape
+  validation annotations, 438/2,637 have confidence overlays, and
+  16/2,637 have verified certificates.
+- The next planner/provenance gap is artifact-level simulation
+  provenance: hashes, environment manifests, dataset/license checks, and
+  execution traces for every executable result.
+
+Validation snapshot, 2026-06-18:
+
+- Fresh upload smoke paper:
+  `f1971dfa-b8e3-45e3-8027-cdb872099b9c`, a graphene/aluminum
+  composite fixture PDF.
+- Rich Donto ingest completed from 3 GLM/donto-agent chunks with 559
+  rich facts, 386 anchored facts, zero skipped facts, and no quality
+  warnings or retries.
+- Final app ingest counters for that paper: 19 compact claims, 719
+  Donto statements, 402 spans, and 1,121 evidence links.
+- The planner now treats these statements as the paper substrate for
+  replication coverage. Specialized predicates become executable/static
+  units; unsupported scientific facts remain visible as blocked
+  `human_review` units instead of disappearing from the worklist.
+- Graph planner output for the smoke paper: 711 statements scanned and
+  286 replication units created (`human_review` 146, `metric_recompute`
+  50, `simulation` 39, `artifact_availability` 22, `equation_check`
+  14, `baseline_contrast` 12, `dataset_integrity` 2,
+  `statistical_significance` 1).
+- Codex full-paper job `ca7d8dd6-22e7-4174-8a6a-88b7494a76e7`
+  consumed `donto-statements.json`, `replication-units.json`, the
+  staged source PDF/text, and deterministic executions. It emitted
+  `results.json`, `progress.json`, `src/full_paper_replication.mjs`,
+  `coverage_report.json`, `extracted_facts.json`, and
+  `consistency_checks.json`.
+- Final Codex smoke result: 286/286 unique unit results, zero missing
+  units, zero system failures, 191 reproduced, 8 fragile, 2
+  contradicted, and 85 inconclusive/blocked. The job row is succeeded;
+  the Codex result status remains `partial` because real replication
+  blockers remain for MD inputs, LAMMPS potential files, HRTEM images,
+  EMA fitting code/equations, Monte Carlo implementation details, and
+  fabrication/measurement batch records.
+- Donto simulation provenance for that smoke job added 572 Donto
+  verdict/reason statements and 386 evidence links keyed to the Codex
+  job, simulation rows, and replication units.
+
 Missing:
 
-- A Donto bundle import path.
-- A general replication-plan schema.
-- Local-model extraction/planning adapters.
-- ML/CS verifier plugins.
+- External Donto bundle import path separate from live `DONTO_DSN`.
+- Multi-worker prioritization, cancellation, retry policy, and
+  resource-aware scheduling beyond the current single systemd worker.
+- Deeper ML/CS verifier plugins that can fetch artifacts, build
+  environments, and execute released code under policy.
 - Proof-obligation scheduling and resolution.
 
 ## Proposed pipeline

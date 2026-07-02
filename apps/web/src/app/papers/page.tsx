@@ -11,6 +11,11 @@ import {
   Container,
   EmptyState,
 } from "@toiletpaper/ui";
+import { isSignal, normalizeVerdict } from "@/lib/verdict";
+import {
+  currentSimulations,
+  latestSimulationJobForPaper,
+} from "@/lib/current-simulations";
 
 export const metadata: Metadata = {
   title: "Papers",
@@ -50,8 +55,14 @@ interface PaperRow {
   status: string;
   createdAt: Date;
   claimCount: number;
-  verdicts: { confirmed: number; refuted: number; inconclusive: number };
+  verdicts: { reproduced: number; contradicted: number; inconclusive: number; noSignal: number };
   simCount: number;
+}
+
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
 }
 
 export default async function PapersPage() {
@@ -84,22 +95,27 @@ export default async function PapersPage() {
     );
 
     const paperSimulations = await Promise.all(
-      paperClaimIds.map(async (claimRows) => {
+      paperClaimIds.map(async (claimRows, index) => {
         const ids = claimRows.map((c) => c.id);
         if (ids.length === 0) return [];
-        return db
-          .select({ verdict: simulations.verdict })
-          .from(simulations)
-          .where(inArray(simulations.claimId, ids));
+        const [allSims, latestJob] = await Promise.all([
+          db.select().from(simulations).where(inArray(simulations.claimId, ids)),
+          latestSimulationJobForPaper(paperRows[index].id),
+        ]);
+        return currentSimulations(allSims, latestJob);
       }),
     );
 
     rows = paperRows.map((p, i) => {
       const sims = paperSimulations[i] ?? [];
+      const normalized = sims.map((s) =>
+        normalizeVerdict(s.verdict, s.metadata, resultReason(s.result)),
+      );
       const verdicts = {
-        confirmed: sims.filter((s) => s.verdict === "confirmed").length,
-        refuted: sims.filter((s) => s.verdict === "refuted").length,
-        inconclusive: sims.filter((s) => s.verdict === "inconclusive" || s.verdict === null).length,
+        reproduced: normalized.filter((v) => v === "reproduced").length,
+        contradicted: normalized.filter((v) => v === "contradicted").length,
+        inconclusive: normalized.filter((v) => v === "inconclusive" || v === "fragile").length,
+        noSignal: normalized.filter((v) => !isSignal(v)).length,
       };
       return {
         id: p.id,
@@ -175,9 +191,12 @@ export default async function PapersPage() {
                           <>
                             <span className="text-xs text-[#9B9B9B]">&middot;</span>
                             <span className="inline-flex items-center gap-2 text-xs">
-                              <span className="font-semibold text-[#2D6A4F]">{paper.verdicts.confirmed} &#10003;</span>
-                              <span className="font-semibold text-[#9B2226]">{paper.verdicts.refuted} &#10007;</span>
+                              <span className="font-semibold text-[#2D6A4F]">{paper.verdicts.reproduced} &#10003;</span>
+                              <span className="font-semibold text-[#9B2226]">{paper.verdicts.contradicted} &#10007;</span>
                               <span className="font-semibold text-[#B07D2B]">{paper.verdicts.inconclusive} ~</span>
+                              {paper.verdicts.noSignal > 0 && (
+                                <span className="font-semibold text-[#8B8589]">{paper.verdicts.noSignal} no signal</span>
+                              )}
                             </span>
                           </>
                         )}

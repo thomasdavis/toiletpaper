@@ -2,6 +2,7 @@
 
 import { useState, useCallback, type ReactNode } from "react";
 import { HelpTip } from "@/components/help-tip";
+import { formatUtcDateTime } from "@/lib/datetime";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -15,6 +16,34 @@ interface EvidenceData {
   title: string | null;
   docType: string | null;
   predicates: string[];
+  coverage: DontoEvidenceCoverage | null;
+}
+
+interface DontoEvidenceCoverage {
+  context: string;
+  statementCount: number;
+  evidenceLinkedCount: number;
+  producedByCount: number;
+  spanLinkedCount: number;
+  confidenceRatedCount: number;
+  missingEvidenceCount: number;
+  missingProducedByCount: number;
+  missingSpanCount: number;
+  missingConfidenceCount: number;
+  linkTypeCounts: Array<{
+    linkType: string;
+    links: number;
+    statements: number;
+  }>;
+  recentRuns: Array<{
+    runId: string;
+    modelId: string | null;
+    status: string;
+    statementsEmitted: number;
+    annotationsEmitted: number;
+    startedAt: string;
+    completedAt: string | null;
+  }>;
 }
 
 interface LifecycleStage {
@@ -22,11 +51,15 @@ interface LifecycleStage {
   label: string;
   description: string;
   complete: boolean;
+  state?: "complete" | "partial" | "pending" | "blocked";
+  evidence?: string;
 }
 
 interface LifecycleData {
   stages: LifecycleStage[];
   completedCount: number;
+  partialCount?: number;
+  blockedCount?: number;
   totalStages: number;
   openObligationCount: number;
   argumentCount: number;
@@ -55,6 +88,8 @@ function DontoSection({
   icon,
   count,
   children,
+  open,
+  onOpenChange,
   onExpand,
   loading,
   helpTip,
@@ -63,46 +98,47 @@ function DontoSection({
   icon: string;
   count?: number;
   children: ReactNode;
-  onExpand?: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onExpand?: () => void | Promise<void>;
   loading?: boolean;
   helpTip?: string;
 }) {
-  const [open, setOpen] = useState(false);
-
   const handleToggle = useCallback(() => {
     const next = !open;
-    setOpen(next);
-    if (next && onExpand) onExpand();
-  }, [open, onExpand]);
+    onOpenChange(next);
+    if (next && onExpand) void onExpand();
+  }, [open, onExpand, onOpenChange]);
 
   return (
     <div className="rounded-lg border border-[#E8E5DE] bg-white">
-      <button
-        type="button"
-        onClick={handleToggle}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#FAFAF8] cursor-pointer"
-      >
-        <span className="text-base">{icon}</span>
-        <span className="flex-1 text-sm font-semibold text-[#3D3D3D]">
-          {title}
-        </span>
-        {helpTip && (
-          <span onClick={(e) => e.stopPropagation()}>
-            <HelpTip text={helpTip} />
-          </span>
-        )}
-        {count != null && (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#4A6FA5] px-1.5 text-[11px] font-medium text-white">
-            {count}
-          </span>
-        )}
-        <span
-          className="text-xs text-[#6B6B6B] transition-transform"
-          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+      <div className="flex w-full items-center gap-3 px-5 py-4 transition-colors hover:bg-[#FAFAF8]">
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
         >
-          &#9656;
-        </span>
-      </button>
+          <span className="text-base">{icon}</span>
+          <span className="flex-1 text-sm font-semibold text-[#3D3D3D]">
+            {title}
+          </span>
+          {count != null && (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#4A6FA5] px-1.5 text-[11px] font-medium text-white">
+              {count}
+            </span>
+          )}
+          <span
+            className="text-xs text-[#6B6B6B] transition-transform"
+            style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+          >
+            &#9656;
+          </span>
+        </button>
+        {helpTip && (
+          <HelpTip text={helpTip} />
+        )}
+      </div>
       {open && (
         <div className="border-t border-[#E8E5DE] px-5 py-4">
           {loading ? (
@@ -127,15 +163,23 @@ function EvidenceChainContent({ data }: { data: EvidenceData }) {
   if (data.extractionModel) items.push({ label: "Model", value: String(data.extractionModel) });
   if (data.extractionVersion) items.push({ label: "Version", value: String(data.extractionVersion) });
   if (data.parserVersion) items.push({ label: "Parser", value: String(data.parserVersion) });
-  if (data.bodyCharCount) items.push({ label: "Body chars", value: Number(data.bodyCharCount).toLocaleString() });
+  if (data.bodyCharCount) {
+    items.push({
+      label: "Body chars",
+      value: new Intl.NumberFormat("en-US").format(Number(data.bodyCharCount)),
+    });
+  }
   if (data.agent) items.push({ label: "Agent", value: String(data.agent) });
   if (data.docType) items.push({ label: "Type", value: data.docType.replace("tp:", "") });
+
+  const coverage = data.coverage;
 
   return (
     <div className="space-y-3">
       <div className="text-xs font-medium text-[#6B6B6B]">
         {data.tripleCount} triples in knowledge graph
       </div>
+      {coverage && <EvidenceCoverageContent coverage={coverage} />}
       {items.length > 0 ? (
         <div className="grid gap-2 sm:grid-cols-2">
           {items.map((item) => (
@@ -173,13 +217,166 @@ function EvidenceChainContent({ data }: { data: EvidenceData }) {
   );
 }
 
+function formatCount(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function pct(value: number, total: number) {
+  if (total <= 0) return "0%";
+  return `${Math.round((value / total) * 100)}%`;
+}
+
+function CoverageMetric({
+  label,
+  value,
+  total,
+  missing,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  missing: number;
+}) {
+  const width = total <= 0 ? 0 : Math.max(2, Math.min(100, (value / total) * 100));
+  return (
+    <div className="rounded-md border border-[#E8E5DE] bg-[#FAFAF8] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9B9B9B]">
+          {label}
+        </div>
+        <div className="font-mono text-sm font-semibold text-[#1A1A1A]">
+          {pct(value, total)}
+        </div>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E8E5DE]">
+        <div
+          className="h-full rounded-full bg-[#2D6A4F]"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <div className="mt-2 text-xs text-[#6B6B6B]">
+        {formatCount(value)} of {formatCount(total)}
+        {missing > 0 ? ` · ${formatCount(missing)} missing` : ""}
+      </div>
+    </div>
+  );
+}
+
+function EvidenceCoverageContent({
+  coverage,
+}: {
+  coverage: DontoEvidenceCoverage;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9B9B9B]">
+            Coverage
+          </div>
+          <div className="mt-1 font-mono text-xs text-[#6B6B6B]">
+            {coverage.context}
+          </div>
+        </div>
+        <div className="font-mono text-sm font-semibold text-[#1A1A1A]">
+          {formatCount(coverage.statementCount)} statements
+        </div>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        <CoverageMetric
+          label="Run provenance"
+          value={coverage.producedByCount}
+          total={coverage.statementCount}
+          missing={coverage.missingProducedByCount}
+        />
+        <CoverageMetric
+          label="Evidence links"
+          value={coverage.evidenceLinkedCount}
+          total={coverage.statementCount}
+          missing={coverage.missingEvidenceCount}
+        />
+        <CoverageMetric
+          label="Span anchors"
+          value={coverage.spanLinkedCount}
+          total={coverage.statementCount}
+          missing={coverage.missingSpanCount}
+        />
+        <CoverageMetric
+          label="Confidence overlays"
+          value={coverage.confidenceRatedCount}
+          total={coverage.statementCount}
+          missing={coverage.missingConfidenceCount}
+        />
+      </div>
+
+      {coverage.linkTypeCounts.length > 0 && (
+        <div>
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9B9B9B]">
+            Link Types
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {coverage.linkTypeCounts.map((link) => (
+              <span
+                key={link.linkType}
+                className="rounded bg-[#F5F3EF] px-1.5 py-0.5 font-mono text-[11px] text-[#6B6B6B]"
+              >
+                {link.linkType}: {formatCount(link.statements)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {coverage.recentRuns.length > 0 && (
+        <div>
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9B9B9B]">
+            Recent Extraction Runs
+          </div>
+          <div className="space-y-1">
+            {coverage.recentRuns.slice(0, 3).map((run) => (
+              <div
+                key={run.runId}
+                className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded border border-[#E8E5DE] bg-[#FAFAF8] px-2 py-1.5 text-xs text-[#6B6B6B]"
+              >
+                <span className="font-mono text-[#3D3D3D]">
+                  {run.runId.slice(0, 8)}
+                </span>
+                <span>{run.status}</span>
+                {run.modelId && <span>{run.modelId}</span>}
+                <span>{formatCount(run.statementsEmitted)} statements</span>
+                <span>{formatUtcDateTime(run.startedAt)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Lifecycle Progress section ──────────────────────────────────────
 
 function LifecycleContent({ data }: { data: LifecycleData }) {
+  const stageColor = (stage: LifecycleStage) => {
+    switch (stage.state ?? (stage.complete ? "complete" : "pending")) {
+      case "complete":
+        return "#2D6A4F";
+      case "partial":
+        return "#B07D2B";
+      case "blocked":
+        return "#9B2226";
+      default:
+        return "#D4D0C8";
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="text-xs font-medium text-[#6B6B6B]">
         {data.completedCount} of {data.totalStages} stages complete
+        {data.partialCount ? ` · ${data.partialCount} partial` : ""}
+        {data.blockedCount ? ` · ${data.blockedCount} blocked` : ""}
       </div>
       {/* Progress bar */}
       <div className="h-2 w-full overflow-hidden rounded-full bg-[#E8E5DE]">
@@ -191,23 +388,26 @@ function LifecycleContent({ data }: { data: LifecycleData }) {
       {/* Stage list */}
       <div className="space-y-1.5">
         {data.stages.map((stage) => (
-          <div key={stage.key} className="flex items-center gap-2">
+          <div key={stage.key} className="flex items-start gap-2">
             <span
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{
-                backgroundColor: stage.complete ? "#2D6A4F" : "#D4D0C8",
-              }}
+              className="mt-1 inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: stageColor(stage) }}
             />
-            <span
-              className="text-sm"
-              style={{
-                color: stage.complete ? "#3D3D3D" : "#999",
-              }}
-            >
-              {stage.label}
-            </span>
-            <span className="ml-auto text-[11px] text-[#999]">
-              {stage.description}
+            <div className="min-w-0 flex-1">
+              <div
+                className="text-sm"
+                style={{
+                  color: stage.complete ? "#3D3D3D" : "#6B6B6B",
+                }}
+              >
+                {stage.label}
+              </div>
+              <div className="text-[11px] leading-5 text-[#999]">
+                {stage.evidence ?? stage.description}
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#999]">
+              {stage.state ?? (stage.complete ? "complete" : "pending")}
             </span>
           </div>
         ))}
@@ -314,6 +514,8 @@ function ObligationsContent({ data }: { data: ObligationEntry[] }) {
 // ── Main component ──────────────────────────────────────────────────
 
 export function DontoDetails({ paperId }: { paperId: string }) {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
   const [evidenceData, setEvidenceData] = useState<EvidenceData | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceLoaded, setEvidenceLoaded] = useState(false);
@@ -385,6 +587,10 @@ export function DontoDetails({ paperId }: { paperId: string }) {
     setObligationsLoaded(true);
   }, [paperId, obligationsLoaded]);
 
+  const setSectionOpen = useCallback((section: string, open: boolean) => {
+    setOpenSections((current) => ({ ...current, [section]: open }));
+  }, []);
+
   return (
     <div className="space-y-3">
       <h3 className="text-base font-semibold text-[#3D3D3D]">
@@ -396,6 +602,8 @@ export function DontoDetails({ paperId }: { paperId: string }) {
         helpTip="The provenance trail: which model extracted the claims, from what document revision, linked to which text spans."
         icon="&#128279;"
         count={evidenceData?.tripleCount}
+        open={Boolean(openSections.evidence)}
+        onOpenChange={(open) => setSectionOpen("evidence", open)}
         onExpand={loadEvidence}
         loading={evidenceLoading}
       >
@@ -411,6 +619,8 @@ export function DontoDetails({ paperId }: { paperId: string }) {
         helpTip="11 stages from raw observation to formal verification. Each stage requires specific evidence (extraction run, confidence score, shape validation, etc.)"
         icon="&#9679;"
         count={lifecycleData ? lifecycleData.completedCount : undefined}
+        open={Boolean(openSections.lifecycle)}
+        onOpenChange={(open) => setSectionOpen("lifecycle", open)}
         onExpand={loadLifecycle}
         loading={lifecycleLoading}
       >
@@ -426,6 +636,8 @@ export function DontoDetails({ paperId }: { paperId: string }) {
         helpTip="Logical connections between claims and simulation results. 'Supports' means simulation evidence backs the claim. 'Rebuts' means simulation contradicts it."
         icon="&#9878;"
         count={argumentsLoaded ? argumentsData.length : undefined}
+        open={Boolean(openSections.arguments)}
+        onOpenChange={(open) => setSectionOpen("arguments", open)}
         onExpand={loadArguments}
         loading={argumentsLoading}
       >
@@ -437,6 +649,8 @@ export function DontoDetails({ paperId }: { paperId: string }) {
         helpTip="Outstanding verification tasks. 'needs-source-support' means the claim needs stronger evidence. 'needs-replication' means the simulation result was fragile."
         icon="&#9888;"
         count={obligationsLoaded ? obligationsData.length : undefined}
+        open={Boolean(openSections.obligations)}
+        onOpenChange={(open) => setSectionOpen("obligations", open)}
         onExpand={loadObligations}
         loading={obligationsLoading}
       >

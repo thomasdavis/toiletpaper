@@ -8,6 +8,7 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run src/lib/*.test.ts",
     "clean": "rm -rf .next"
   },
   "dependencies": {

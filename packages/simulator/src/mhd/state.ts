@@ -95,7 +95,6 @@ export function fastMagnetosonicSpeed(state: MhdState, i: number, j: number, dir
 
 export function totalEnergy(state: MhdState): number {
   const g = state.grid;
-  const nx = totalX(g);
   let total = 0;
   for (let j = g.nghost; j < g.ny + g.nghost; j++) {
     for (let i = g.nghost; i < g.nx + g.nghost; i++) {

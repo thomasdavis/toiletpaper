@@ -1,8 +1,7 @@
 "use client";
 
 import { type HTMLAttributes, type ReactNode, forwardRef, useEffect, useRef, useState } from "react";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { createPortal } = require("react-dom") as typeof import("react-dom");
+import { createPortal } from "react-dom";
 import { cn } from "./cn";
 
 export interface DrawerProps extends HTMLAttributes<HTMLDivElement> {

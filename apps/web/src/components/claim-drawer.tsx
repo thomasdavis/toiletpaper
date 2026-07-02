@@ -13,6 +13,7 @@ import {
   ProgressBar,
   Button,
 } from "@toiletpaper/ui";
+import { isSignal, normalizeVerdict, type Verdict } from "@/lib/verdict";
 
 // ── Shared types (serialized from server) ──────────────────────────
 
@@ -88,11 +89,14 @@ export interface SerializedClaim {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function mapVerdict(verdict: string | null): "reproduced" | "contradicted" | "fragile" | "undetermined" {
-  if (verdict === "confirmed" || verdict === "reproduced") return "reproduced";
-  if (verdict === "refuted" || verdict === "contradicted") return "contradicted";
-  if (verdict === "fragile") return "fragile";
-  return "undetermined";
+function resultReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  return typeof r.reason === "string" ? r.reason : null;
+}
+
+function mapVerdict(sim: SerializedSimulation): Verdict {
+  return normalizeVerdict(sim.verdict, sim.metadata, resultReason(sim.result));
 }
 
 function formatMethodName(method: string): string {
@@ -176,12 +180,17 @@ const categoryVariant: Record<string, "default" | "success" | "warning" | "dange
   theoretical: "default",
 };
 
-export function getClaimVerdict(claim: SerializedClaim): "reproduced" | "contradicted" | "fragile" | "undetermined" | "untested" {
+export function getClaimVerdict(claim: SerializedClaim): Verdict {
   if (claim.simulations.length === 0) return "untested";
-  if (claim.simulations.some(s => s.verdict === "confirmed" || s.verdict === "reproduced")) return "reproduced";
-  if (claim.simulations.some(s => s.verdict === "refuted" || s.verdict === "contradicted")) return "contradicted";
-  if (claim.simulations.some(s => s.verdict === "fragile")) return "fragile";
-  return "undetermined";
+  const verdicts = claim.simulations.map(mapVerdict);
+  if (verdicts.some((v) => v === "reproduced")) return "reproduced";
+  if (verdicts.some((v) => v === "contradicted")) return "contradicted";
+  if (verdicts.some((v) => v === "fragile")) return "fragile";
+  if (verdicts.some((v) => isSignal(v))) return "inconclusive";
+  if (verdicts.some((v) => v === "system_error")) return "system_error";
+  if (verdicts.some((v) => v === "not_applicable")) return "not_applicable";
+  if (verdicts.some((v) => v === "vacuous")) return "vacuous";
+  return "untested";
 }
 
 // ── ClaimDrawer ────────────────────────────────────────────────────
@@ -217,8 +226,8 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
 
         {/* Category + Verdict */}
         <Stack direction="horizontal" align="center" gap={2} wrap>
-          {verdict !== "untested" && (
-            <VerdictBadge verdict={verdict === "undetermined" ? "undetermined" : verdict} />
+          {(verdict !== "untested" || claim.simulations.length > 0) && (
+            <VerdictBadge verdict={verdict} />
           )}
           {claim.category && claim.category !== "unknown" && (
             <Badge variant={categoryVariant[claim.category] ?? "muted"}>
@@ -301,7 +310,7 @@ export function ClaimDrawer({ claim, open, onClose, paperId }: ClaimDrawerProps)
             <Stack gap={3}>
               {claim.simulations.map((sim) => {
                 const result = extractResultFields(sim.result);
-                const simVerdict = mapVerdict(sim.verdict);
+                const simVerdict = mapVerdict(sim);
                 const review = extractReviewData(sim.metadata);
                 return (
                   <div

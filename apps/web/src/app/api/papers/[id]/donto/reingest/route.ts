@@ -17,6 +17,10 @@ function hasExtractorProvider() {
   return Boolean(keyFile && existsSync(keyFile));
 }
 
+function queueDontoIngest() {
+  return process.env.DONTO_INGEST_LAUNCHER === "queue";
+}
+
 /**
  * POST /api/papers/{id}/donto/reingest
  *
@@ -31,7 +35,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const force = new URL(req.url).searchParams.get("force") === "true";
+  const url = new URL(req.url);
+  const force = url.searchParams.get("force") === "true";
+  const sync = url.searchParams.get("sync") === "true";
 
   const [paper] = await db.select().from(papers).where(eq(papers.id, id));
   if (!paper) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -57,6 +63,32 @@ export async function POST(
       { error: "extractor provider not configured" },
       { status: 500 },
     );
+  }
+
+  if (queueDontoIngest() && !sync) {
+    await db
+      .insert(paperDontoIngest)
+      .values({
+        paperId: id,
+        state: "queued",
+        attempts: 0,
+        lastAttemptAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: paperDontoIngest.paperId,
+        set: {
+          state: "queued",
+          lastAttemptAt: new Date(),
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          updatedAt: new Date(),
+        },
+      });
+    await db
+      .update(papers)
+      .set({ status: "extracting", updatedAt: new Date() })
+      .where(eq(papers.id, id));
+    return NextResponse.json({ state: "queued", paperId: id }, { status: 202 });
   }
 
   let buf: Buffer;
@@ -95,10 +127,26 @@ export async function POST(
   const { extractClaimsFromText, ingestPaperIntoDonto } = await import(
     "@toiletpaper/extractor"
   );
-  const extraction = await extractClaimsFromText(
-    textForExtraction,
-    process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
-  );
+  let extraction;
+  try {
+    extraction = await extractClaimsFromText(
+      textForExtraction,
+      process.env.LLM_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "",
+    );
+  } catch (claimErr) {
+    const msg = claimErr instanceof Error ? claimErr.message : String(claimErr);
+    console.warn(
+      "Compact claim extraction failed during Donto reingest; continuing with rich Donto-agent extraction:",
+      msg,
+    );
+    extraction = {
+      title: paper.title,
+      authors: paper.authors ?? [],
+      abstract: paper.abstract ?? "",
+      claims: [],
+      relations: [],
+    };
+  }
 
   // Bump attempts + mark running
   await db

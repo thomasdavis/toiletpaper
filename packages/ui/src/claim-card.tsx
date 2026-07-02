@@ -5,7 +5,17 @@ import { ConfidenceMeter } from "./confidence-meter";
 
 export interface ClaimCardProps extends HTMLAttributes<HTMLDivElement> {
   claim: string;
-  verdict?: "reproduced" | "contradicted" | "fragile" | "undetermined" | "not-simulable";
+  verdict?:
+    | "reproduced"
+    | "contradicted"
+    | "fragile"
+    | "inconclusive"
+    | "undetermined"
+    | "untested"
+    | "not_applicable"
+    | "vacuous"
+    | "system_error"
+    | "not-simulable";
   confidence?: number;
   value?: string | number;
   unit?: string;
