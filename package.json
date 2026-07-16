@@ -14,6 +14,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "smoke:upload": "bash scripts/smoke-upload-paper.sh",
+    "recover:local-db": "tsx scripts/recover-local-app-db.ts",
+    "provision:local-db": "tsx scripts/provision-local-app-db.ts",
     "test:integration": "vitest run --config vitest.integration.ts",
     "clean": "turbo run clean && rm -rf node_modules",
     "db:generate": "turbo run db:generate",
@@ -22,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^22.19.17",
     "pdfkit": "^0.18.0",
+    "postgres": "^3.4.9",
     "tsx": "^4.21.0",
     "turbo": "^2.9.6",
     "typescript": "^5.7.2",

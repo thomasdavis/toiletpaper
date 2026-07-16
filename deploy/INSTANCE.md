@@ -56,6 +56,22 @@ successes. The relevant env knobs are:
 The app still has its own `toiletpaper` Postgres database for papers,
 claims, simulations, job state, and UI metadata.
 
+If that read-model database must be rebuilt, inventory and restore it from the
+durable Donto revisions plus the simulation workdir:
+
+```bash
+set -a; . /etc/toiletpaper-web.env; set +a
+pnpm provision:local-db        # idempotently create/repair the local role + DB
+pnpm --filter @toiletpaper/db db:push
+pnpm recover:local-db          # read-only inventory
+pnpm recover:local-db --apply  # idempotent restore; never mutates Donto
+```
+
+The recovery preserves every provable paper, compact claim, replication unit,
+Codex result, legacy result, and job event. When an original uploaded binary is
+not present, it exposes Donto's exact parsed revision as a clearly named
+`recovered-<paper-id>.md` source instead of fabricating a PDF.
+
 Full-paper replication is Codex-backed and runs outside the web request
 path. `POST /api/simulate` compiles Donto graph statements into
 replication units, materializes deterministic placeholder rows, and
