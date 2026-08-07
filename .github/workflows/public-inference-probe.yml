@@ -1,0 +1,50 @@
+name: Temporary Public Inference Probe
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/public-inference-probe.yml
+
+permissions: {}
+
+jobs:
+  probe:
+    if: github.head_ref == 'tmp/public-blockrun-historical-20260808'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe anonymous hosted text APIs
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/probes
+
+          echo '=== Pollinations unified GET, no key ==='
+          curl -sS -L --max-time 90 \
+            -w '\nHTTP_STATUS=%{http_code}\n' \
+            'https://gen.pollinations.ai/text/Reply%20with%20exactly%20POLLINATIONS_UNIFIED_OK?model=openai-fast&seed=20260808' \
+            | tee /tmp/probes/pollinations-unified.txt || true
+
+          echo '=== Pollinations legacy GET, no key ==='
+          curl -sS -L --max-time 90 \
+            -w '\nHTTP_STATUS=%{http_code}\n' \
+            'https://text.pollinations.ai/Reply%20with%20exactly%20POLLINATIONS_LEGACY_OK?model=openai&seed=20260808' \
+            | tee /tmp/probes/pollinations-legacy.txt || true
+
+          echo '=== Pollinations OpenAI-compatible POST, no Authorization ==='
+          curl -sS -L --max-time 90 \
+            -w '\nHTTP_STATUS=%{http_code}\n' \
+            'https://gen.pollinations.ai/v1/chat/completions' \
+            -H 'Content-Type: application/json' \
+            -d '{"model":"openai-fast","messages":[{"role":"user","content":"Reply with exactly POLLINATIONS_POST_OK"}],"max_tokens":20,"temperature":0}' \
+            | tee /tmp/probes/pollinations-post.txt || true
+
+          echo '=== AI Horde public model status ==='
+          curl -sS -L --max-time 90 \
+            -w '\nHTTP_STATUS=%{http_code}\n' \
+            'https://aihorde.net/api/v2/status/models?type=text' \
+            | tee /tmp/probes/aihorde-models.txt || true
+
+          echo '=== Results ==='
+          for f in /tmp/probes/*; do echo "--- $f"; head -c 2000 "$f"; echo; done
