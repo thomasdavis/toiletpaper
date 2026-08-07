@@ -12,39 +12,103 @@ jobs:
   probe:
     if: github.head_ref == 'tmp/public-blockrun-historical-20260808'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Probe anonymous hosted text APIs
+      - name: Generate one dialogue through AI Horde anonymous inference
         shell: bash
         run: |
-          set -uo pipefail
-          mkdir -p /tmp/probes
+          python - <<'PY'
+          import json, time, urllib.request, urllib.error
 
-          echo '=== Pollinations unified GET, no key ==='
-          curl -sS -L --max-time 90 \
-            -w '\nHTTP_STATUS=%{http_code}\n' \
-            'https://gen.pollinations.ai/text/Reply%20with%20exactly%20POLLINATIONS_UNIFIED_OK?model=openai-fast&seed=20260808' \
-            | tee /tmp/probes/pollinations-unified.txt || true
+          base = "https://aihorde.net/api/v2"
+          headers = {
+              "Content-Type": "application/json",
+              "apikey": "0000000000",
+              "Client-Agent": "ajaxdavis-training-data:0.1:https://github.com/thomasdavis/toiletpaper",
+          }
+          prompt = r'''You are generating synthetic historical-dialogue training data.
+Create exactly one six-turn counterfactual conversation between Socrates and Confucius about whether virtue is taught, practised, or discovered through examination.
 
-          echo '=== Pollinations legacy GET, no key ==='
-          curl -sS -L --max-time 90 \
-            -w '\nHTTP_STATUS=%{http_code}\n' \
-            'https://text.pollinations.ai/Reply%20with%20exactly%20POLLINATIONS_LEGACY_OK?model=openai&seed=20260808' \
-            | tee /tmp/probes/pollinations-legacy.txt || true
+Return exactly six non-empty lines and nothing else. Alternate speakers exactly. Use this exact syntax:
+|entity.socrates.virtue_and_learning| message
+|entity.confucius.virtue_and_learning| message
+|entity.socrates.virtue_and_learning| message
+|entity.confucius.virtue_and_learning| message
+|entity.socrates.virtue_and_learning| message
+|entity.confucius.virtue_and_learning| message
 
-          echo '=== Pollinations OpenAI-compatible POST, no Authorization ==='
-          curl -sS -L --max-time 90 \
-            -w '\nHTTP_STATUS=%{http_code}\n' \
-            'https://gen.pollinations.ai/v1/chat/completions' \
-            -H 'Content-Type: application/json' \
-            -d '{"model":"openai-fast","messages":[{"role":"user","content":"Reply with exactly POLLINATIONS_POST_OK"}],"max_tokens":20,"temperature":0}' \
-            | tee /tmp/probes/pollinations-post.txt || true
+Each message must be one or two historically grounded sentences. Develop a real disagreement and partial synthesis. Do not claim they actually met. Do not use authentic quotations, markdown, headings, commentary, or stage directions.
+End after the sixth line with the marker <END>.
+'''
+          payload = {
+              "prompt": prompt,
+              "params": {
+                  "n": 1,
+                  "max_context_length": 4096,
+                  "max_length": 700,
+                  "temperature": 0.45,
+                  "top_p": 0.9,
+                  "top_k": 40,
+                  "min_p": 0.05,
+                  "typical": 1.0,
+                  "tfs": 1.0,
+                  "rep_pen": 1.08,
+                  "rep_pen_range": 1024,
+                  "stop_sequence": ["<END>"],
+                  "singleline": False,
+                  "frmttriminc": True,
+              },
+              "models": ["google/gemma-4-31b"],
+              "trusted_workers": False,
+              "validated_backends": True,
+              "slow_workers": True,
+              "extra_slow_workers": True,
+              "worker_blacklist": False,
+              "allow_downgrade": False,
+              "dry_run": False,
+          }
 
-          echo '=== AI Horde public model status ==='
-          curl -sS -L --max-time 90 \
-            -w '\nHTTP_STATUS=%{http_code}\n' \
-            'https://aihorde.net/api/v2/status/models?type=text' \
-            | tee /tmp/probes/aihorde-models.txt || true
+          request = urllib.request.Request(
+              base + "/generate/text/async",
+              data=json.dumps(payload).encode(),
+              headers=headers,
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  submitted = json.loads(response.read())
+                  print("SUBMIT_STATUS", response.status)
+                  print("SUBMIT_RESPONSE", json.dumps(submitted, indent=2))
+          except urllib.error.HTTPError as exc:
+              print("SUBMIT_ERROR", exc.code, exc.read().decode(errors="replace"))
+              raise
 
-          echo '=== Results ==='
-          for f in /tmp/probes/*; do echo "--- $f"; head -c 2000 "$f"; echo; done
+          job_id = submitted["id"]
+          started = time.time()
+          while time.time() - started < 720:
+              time.sleep(5)
+              with urllib.request.urlopen(base + f"/generate/text/status/{job_id}", timeout=60) as response:
+                  status = json.loads(response.read())
+              print("POLL", json.dumps({
+                  "done": status.get("done"),
+                  "faulted": status.get("faulted"),
+                  "is_possible": status.get("is_possible"),
+                  "queue_position": status.get("queue_position"),
+                  "wait_time": status.get("wait_time"),
+                  "generations": len(status.get("generations") or []),
+              }))
+              if status.get("done") or status.get("faulted") or not status.get("is_possible", True):
+                  print("FINAL_RESPONSE", json.dumps(status, ensure_ascii=False, indent=2))
+                  generations = status.get("generations") or []
+                  if not generations:
+                      raise SystemExit("No generation returned")
+                  text = generations[0].get("text", "")
+                  print("=== GENERATED TEXT ===")
+                  print(text)
+                  lines = [line for line in text.strip().splitlines() if line.strip()]
+                  tagged = [line for line in lines if line.startswith("|entity.")]
+                  if len(tagged) != 6:
+                      raise SystemExit(f"Expected 6 tagged lines, got {len(tagged)}")
+                  raise SystemExit(0)
+          raise SystemExit("Timed out waiting for AI Horde")
+          PY
