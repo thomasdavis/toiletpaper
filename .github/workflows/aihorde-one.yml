@@ -2,7 +2,7 @@ name: Temporary AI Horde One-Conversation Test
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, reopened]
 
 permissions: {}
 
