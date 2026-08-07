@@ -4,20 +4,36 @@ on:
   push:
     branches:
       - tmp/aihorde-one-20260808
+    paths:
+      - .github/workflows/aihorde-one.yml
 
-permissions: {}
+permissions:
+  contents: write
 
 jobs:
   generate-one:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Checkout temporary branch
+        uses: actions/checkout@v4
+        with:
+          ref: tmp/aihorde-one-20260808
+
       - name: Generate one dialogue through AI Horde anonymous inference
         shell: bash
         run: |
+          mkdir -p tmp-public-inference
           python - <<'PY'
-          import json, time, urllib.request, urllib.error
+          import datetime as dt
+          import json
+          import pathlib
+          import time
+          import traceback
+          import urllib.error
+          import urllib.request
 
+          out_dir = pathlib.Path("tmp-public-inference")
           base = "https://aihorde.net/api/v2"
           headers = {
               "Content-Type": "application/json",
@@ -35,7 +51,7 @@ Return exactly six non-empty lines and nothing else. Alternate speakers exactly.
 |entity.socrates.virtue_and_learning| message
 |entity.confucius.virtue_and_learning| message
 
-Each message must be one or two historically grounded sentences. Develop a real disagreement and partial synthesis. Do not claim they actually met. Do not use authentic quotations, markdown, headings, commentary, or stage directions.
+Each message must be one or two historically grounded sentences. Develop a real disagreement and partial synthesis. Do not claim they actually met. Do not use authentic quotations, Markdown, headings, commentary, or stage directions.
 End after the sixth line with the marker <END>.
 '''
           payload = {
@@ -66,46 +82,86 @@ End after the sixth line with the marker <END>.
               "dry_run": False
           }
 
-          req = urllib.request.Request(
-              base + "/generate/text/async",
-              data=json.dumps(payload).encode("utf-8"),
-              headers=headers,
-              method="POST",
-          )
+          record = {
+              "provider": "AI Horde",
+              "base_url": base,
+              "credential": "documented shared anonymous key 0000000000",
+              "uses_user_secret": False,
+              "requested_model": "google/gemma-4-31b",
+              "request": payload,
+              "started_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+          }
+          text = ""
           try:
+              req = urllib.request.Request(
+                  base + "/generate/text/async",
+                  data=json.dumps(payload).encode("utf-8"),
+                  headers=headers,
+                  method="POST",
+              )
               with urllib.request.urlopen(req, timeout=60) as response:
                   submitted = json.loads(response.read())
-                  print("SUBMIT_STATUS", response.status)
-                  print("SUBMIT_RESPONSE", json.dumps(submitted, indent=2))
-          except urllib.error.HTTPError as exc:
-              print("SUBMIT_ERROR", exc.code, exc.read().decode(errors="replace"))
-              raise
+                  record["submit_http_status"] = response.status
+                  record["submit_response"] = submitted
 
-          job_id = submitted["id"]
-          deadline = time.time() + 720
-          while time.time() < deadline:
-              time.sleep(5)
-              with urllib.request.urlopen(base + f"/generate/text/status/{job_id}", timeout=60) as response:
-                  status = json.loads(response.read())
-              print("POLL", json.dumps({
-                  "done": status.get("done"),
-                  "faulted": status.get("faulted"),
-                  "is_possible": status.get("is_possible"),
-                  "queue_position": status.get("queue_position"),
-                  "wait_time": status.get("wait_time"),
-                  "generations": len(status.get("generations") or [])
-              }))
-              if status.get("done") or status.get("faulted") or not status.get("is_possible", True):
-                  print("FINAL_RESPONSE", json.dumps(status, ensure_ascii=False, indent=2))
-                  generations = status.get("generations") or []
-                  if not generations:
-                      raise SystemExit("No generation returned")
-                  text = generations[0].get("text", "")
-                  print("=== GENERATED TEXT ===")
-                  print(text)
-                  tagged = [line for line in text.strip().splitlines() if line.startswith("|entity.")]
-                  if len(tagged) != 6:
-                      raise SystemExit(f"Expected 6 tagged lines, got {len(tagged)}")
-                  raise SystemExit(0)
-          raise SystemExit("Timed out waiting for AI Horde")
+              job_id = submitted["id"]
+              record["job_id"] = job_id
+              polls = []
+              deadline = time.time() + 660
+              while time.time() < deadline:
+                  time.sleep(5)
+                  with urllib.request.urlopen(base + f"/generate/text/status/{job_id}", timeout=60) as response:
+                      status = json.loads(response.read())
+                  polls.append({
+                      "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                      "done": status.get("done"),
+                      "faulted": status.get("faulted"),
+                      "is_possible": status.get("is_possible"),
+                      "queue_position": status.get("queue_position"),
+                      "wait_time": status.get("wait_time"),
+                      "generations": len(status.get("generations") or []),
+                  })
+                  if status.get("done") or status.get("faulted") or not status.get("is_possible", True):
+                      record["final_response"] = status
+                      generations = status.get("generations") or []
+                      if generations:
+                          text = generations[0].get("text", "") or ""
+                      break
+              record["polls"] = polls
+              if "final_response" not in record:
+                  record["error"] = "Timed out waiting for AI Horde"
+          except Exception as exc:
+              record["error"] = f"{type(exc).__name__}: {exc}"
+              record["traceback"] = traceback.format_exc()
+
+          tagged = [line.strip() for line in text.splitlines() if line.strip().startswith("|entity.")]
+          expected_prefixes = [
+              "|entity.socrates.virtue_and_learning|",
+              "|entity.confucius.virtue_and_learning|",
+          ] * 3
+          record["text"] = text
+          record["validation"] = {
+              "tagged_line_count": len(tagged),
+              "exact_alternation": len(tagged) == 6 and all(
+                  line.startswith(expected) for line, expected in zip(tagged, expected_prefixes)
+              ),
+              "valid": len(tagged) == 6 and all(
+                  line.startswith(expected) for line, expected in zip(tagged, expected_prefixes)
+              ),
+          }
+          record["completed_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+          (out_dir / "one-result.json").write_text(
+              json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          (out_dir / "one-result.txt").write_text(text, encoding="utf-8")
+          print(json.dumps(record["validation"], indent=2))
           PY
+
+      - name: Commit test result to temporary branch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp-public-inference/one-result.json tmp-public-inference/one-result.txt
+          git commit -m 'chore: record keyless AI Horde test result [skip ci]'
+          git push origin HEAD:tmp/aihorde-one-20260808
