@@ -87,7 +87,12 @@ function isRetryableExtractorError(error: unknown): boolean {
     status === 503 ||
     status === 504 ||
     code === "429" ||
-    /rate limit|temporarily unavailable|timeout/i.test(message)
+    /rate limit|temporarily unavailable|timeout/i.test(message) ||
+    // Transient transport failures (undici/fetch): long gpt-5 reasoning
+    // generations can drop mid-body; these are safe to retry.
+    /premature close|fetch failed|socket hang up|ECONNRESET|ETIMEDOUT|network error|invalid response body/i.test(
+      message,
+    )
   );
 }
 
@@ -176,6 +181,9 @@ export async function extractClaimsFromText(
   const client = new OpenAI({
     apiKey: resolvedApiKey,
     baseURL: extractorBaseUrl(),
+    // The SDK's bundled node-fetch shim drops long streamed responses with
+    // "Premature close" (~50s); Node's native undici fetch streams them fine.
+    fetch: globalThis.fetch as unknown as typeof fetch,
     defaultHeaders: {
       "User-Agent": "toiletpaper/instance-deploy",
     },
@@ -183,12 +191,19 @@ export async function extractClaimsFromText(
 
   const truncated = text.length > 100_000 ? text.slice(0, 100_000) : text;
 
-  let response;
+  let streamedContent: string | undefined;
   const attempts = Math.max(1, extractorRetryAttempts());
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      response = await client.chat.completions.create({
-        model: extractorModel(),
+      // OpenAI gpt-5 family: chat completions reject `max_tokens` (use
+      // `max_completion_tokens`) and only support the default temperature.
+      // Streamed so long reasoning generations keep bytes flowing — the
+      // non-streaming request sat idle for minutes and middleboxes closed it
+      // ("Premature close").
+      const model = extractorModel();
+      const isReasoningFamily = /^(gpt-5|o\d)/i.test(model);
+      const stream = await client.chat.completions.create({
+        model,
         messages: [
           { role: "system", content: `${EXTRACTION_PROMPT}\n\nYou must output strict JSON only.` },
           {
@@ -197,9 +212,26 @@ export async function extractClaimsFromText(
           },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.1,
-        max_tokens: extractorMaxTokens(),
+        stream: true,
+        ...(isReasoningFamily
+          ? {
+              max_completion_tokens: extractorMaxTokens(),
+              // Low effort keeps tokens flowing on the stream early; at higher
+              // efforts gpt-5 emits nothing for minutes and idle middleboxes
+              // close the connection ("Premature close"). This is the light
+              // compact pass — depth lives in the donto-agent rich pass.
+              reasoning_effort:
+                (process.env.LLM_REASONING_EFFORT as "low") || "low",
+            }
+          : { temperature: 0.1, max_tokens: extractorMaxTokens() }),
       });
+      let streamed = "";
+      for await (const part of stream) {
+        streamed +=
+          (part as { choices?: { delta?: { content?: string } }[] })
+            .choices?.[0]?.delta?.content ?? "";
+      }
+      streamedContent = streamed;
       break;
     } catch (error) {
       if (attempt >= attempts || !isRetryableExtractorError(error)) throw error;
@@ -212,7 +244,7 @@ export async function extractClaimsFromText(
     }
   }
 
-  const content = response?.choices[0]?.message?.content;
+  const content = streamedContent;
   if (!content) throw new Error("No response from model");
 
   const parsed = parseJsonObject(content) as ExtractionResult;

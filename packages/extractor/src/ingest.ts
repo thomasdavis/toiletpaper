@@ -132,6 +132,7 @@ export async function ingestPaperIntoDonto(
   // ── 3. Revision ───────────────────────────────────────────────────────
   const revRes = await createRevision(DONTOSRV_URL, {
     document_id: docRes.document_id, body: pdfText || "", parser_version: parserVersion,
+    context: paperCtx,
   });
   if (!revRes?.revision_id) throw new Error(`Revision creation failed: ${JSON.stringify(revRes)}`);
 
