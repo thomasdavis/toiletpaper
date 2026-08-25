@@ -367,6 +367,49 @@ export const replicationBlueprints = pgTable("replication_blueprints", {
 });
 
 // ────────────────────────────────────────────────────────────────────────────
+// PRD-010 — replication_bundles: content-addressed per-paper replication
+// bundles. One row per (paper, job) aggregation artifact; the manifest
+// indexes units, correspondence receipts, gate records, gated verdicts and
+// file digests. Additive table — nothing else references it yet.
+// ────────────────────────────────────────────────────────────────────────────
+
+export const replicationBundles = pgTable(
+  "replication_bundles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    paperId: uuid("paper_id")
+      .references(() => papers.id, { onDelete: "cascade" })
+      .notNull(),
+    /** simulation_jobs id; null for graph-only (deterministic) bundles */
+    jobId: uuid("job_id"),
+    /** e.g. tp.replication.<paperId>.<jobId> */
+    artifactId: text("artifact_id").notNull(),
+    schemaVersion: text("schema_version").notNull(),
+    /** sha256 over the manifest's canonical JSON bytes */
+    sha256: text("sha256").notNull(),
+    manifest: jsonb("manifest").notNull(),
+    /** where the bundle file was written on disk, for auditing */
+    workdirPath: text("workdir_path"),
+    totalUnits: integer("total_units").default(0).notNull(),
+    gatedSignalUnits: integer("gated_signal_units").default(0).notNull(),
+    demotedSignalUnits: integer("demoted_signal_units").default(0).notNull(),
+    metaUnits: integer("meta_units").default(0).notNull(),
+    missingResultUnits: integer("missing_result_units").default(0).notNull(),
+    validReceiptUnits: integer("valid_receipt_units").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    paperIdx: index("replication_bundles_paper_idx").on(t.paperId, t.createdAt),
+    artifactIdx: uniqueIndex("replication_bundles_artifact_idx").on(
+      t.artifactId,
+      t.sha256,
+    ),
+  }),
+);
+
+// ────────────────────────────────────────────────────────────────────────────
 // simulation_logs: real-time Claude Code session streaming
 // ────────────────────────────────────────────────────────────────────────────
 

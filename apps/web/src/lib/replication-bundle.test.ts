@@ -234,7 +234,8 @@ describe("buildReplicationBundle", () => {
     expect(ceilings).toContain("none");
     // The coverage section only histograms ceilings; there is no merged paper-level ceiling field.
     expect(
-      (bundle.manifest.coverage as Record<string, unknown>).claimCeiling,
+      (bundle.manifest.coverage as unknown as Record<string, unknown>)
+        .claimCeiling,
     ).toBeUndefined();
     expect(bundle.manifest.coverage.claimCeilings).toEqual({
       proxy_dynamics: 1,

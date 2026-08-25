@@ -199,6 +199,23 @@ const CORE_FILES: Array<
     required: true,
     phase: "output",
   },
+  // PRD-010 artifacts. Optional here so dossiers computed over pre-PRD-010
+  // job workdirs do not retroactively flip to "incomplete"; new jobs list
+  // both as required in the script's frozen snapshot.
+  {
+    key: "correspondenceManifest",
+    label: "Correspondence manifest",
+    relativePath: "correspondence-manifest.json",
+    required: false,
+    phase: "output",
+  },
+  {
+    key: "replicationBundle",
+    label: "Replication bundle",
+    relativePath: "replication-bundle.json",
+    required: false,
+    phase: "output",
+  },
   {
     key: "frozenDossier",
     label: "Frozen dossier snapshot",
