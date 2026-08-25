@@ -49,6 +49,7 @@ PRD-002, PRD-003, and PRD-004 are at P0.
 | [PRD-007](PRD-007-cloud-run-deployment-stability.md) | Cloud Run deployment stability | Declarative `services replace` from a checked-in YAML; drift detector; cert-renewal from a SAN file. |
 | [PRD-008](PRD-008-ui-honesty.md) | UI honesty pass | Two-row distribution bar, per-claim "why no verdict?", Donto pill, source-PDF link, lazy-loaded detail page. |
 | [PRD-009](PRD-009-donto-local-replication-planner.md) | Donto-native local replication planner | Compile Donto/Qwen claim bundles into replication units; route to local/deterministic verifiers; store plans, blockers, runs, and verdicts back in Donto. |
+| [PRD-010](PRD-010-correspondence-gates-and-replication-bundle.md) | Correspondence gates & replication bundle | Machine-checkable receipts binding each unit to the system actually simulated; extraction→compilation→correspondence→execution→verdict gate order with honest demotion; one content-addressed per-paper bundle a reviewer consumes. |
 
 ## What this set deliberately does *not* cover
 
