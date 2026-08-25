@@ -10,6 +10,8 @@ import {
   type ReplicationUnit,
 } from "@toiletpaper/simulator";
 import { getDontoStatementsForPaper, paperClaimsContext } from "@/lib/donto-statements";
+import { deriveDeterministicReceipt } from "@/lib/replication-correspondence";
+import { gateUnitVerdict, type GatedVerdict } from "@/lib/replication-gates";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -193,6 +195,32 @@ export async function replaceGraphSimulationRows(
     execution: executeReplicationUnit(unit),
   }));
 
+  // PRD-010: deterministic executors get machine-derived correspondence
+  // receipts (they know exactly what they checked), and their verdicts run
+  // through the same gate order as agent results.
+  const gatedByUnitId = new Map<string, GatedVerdict>();
+  const receiptsByUnitId = new Map<
+    string,
+    ReturnType<typeof deriveDeterministicReceipt>
+  >();
+  for (const { unit, execution } of executions) {
+    const receipt = deriveDeterministicReceipt(unit, execution);
+    receiptsByUnitId.set(unit.id, receipt);
+    gatedByUnitId.set(
+      unit.id,
+      gateUnitVerdict({
+        unit,
+        rawVerdict: execution.verdict,
+        rawEvidenceMode: execution.evidenceMode,
+        receipt,
+        executionEvidence: {
+          measurements: execution.measurements,
+          reportedArtifacts: execution.artifacts,
+        },
+      }),
+    );
+  }
+
   const claimIds = units
     .map((unit) => claimIdForReplicationUnit(unit))
     .filter((id): id is string => Boolean(id));
@@ -224,7 +252,11 @@ export async function replaceGraphSimulationRows(
     .map(({ unit, execution }) => {
       const claimId = claimIdForReplicationUnit(unit);
       if (!claimId) return null;
-      const verdict = executionVerdictForDb(execution.verdict);
+      const gated = gatedByUnitId.get(unit.id);
+      const receipt = receiptsByUnitId.get(unit.id) ?? null;
+      const verdict = gated
+        ? executionVerdictForDb(gated.verdict)
+        : executionVerdictForDb(execution.verdict);
       return {
         claimId,
         method: `donto-replication-${unit.unitType}`,
@@ -247,9 +279,11 @@ export async function replaceGraphSimulationRows(
           limitations: execution.limitations,
           verifierCandidates: unit.verifierCandidates,
           digitalPhysics: execution.digitalPhysics,
+          gates: gated?.gates ?? [],
+          correspondenceReceipt: receipt,
         },
         verdict,
-        evidenceMode: execution.evidenceMode,
+        evidenceMode: gated?.evidenceMode ?? execution.evidenceMode,
         limitations: execution.limitations,
         metadata: {
           graph_fed: true,
@@ -262,7 +296,13 @@ export async function replaceGraphSimulationRows(
           source_statement_ids: unit.sourceStatementIds,
           domain: unit.domain,
           unit_type: unit.unitType,
-          original_verdict: execution.verdict,
+          original_verdict: verdict,
+          gated: true,
+          demoted: gated?.demoted ?? false,
+          // NOT original_verdict: normalizeVerdict() would re-promote it.
+          ungated_verdict: gated?.ungatedVerdict ?? null,
+          gate_failures: gated?.gateFailures ?? [],
+          claim_ceiling: gated?.claimCeiling ?? null,
         },
       };
     })

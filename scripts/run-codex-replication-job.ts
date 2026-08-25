@@ -17,12 +17,20 @@ import {
   executeReplicationUnit,
   type ReplicationAgentResult,
   type ReplicationUnit,
-  type ReplicationUnitType,
 } from "@toiletpaper/simulator";
 import {
   createDontoSqlFromEnv,
   recordSimulationResultProvenance,
 } from "./lib/donto-simulation-provenance";
+import { rowToUnit, type ReplicationUnitRow } from "./lib/replication-unit-row";
+import {
+  CORRESPONDENCE_MANIFEST_FILENAME,
+  REPLICATION_BUNDLE_FILENAME,
+  describeBundleFiles,
+  loadCorrespondenceManifest,
+  resolveReceiptCodeDigests,
+  writeReplicationBundle,
+} from "./lib/replication-bundle-io";
 import {
   loadPaperArtifactManifest,
   paperArtifactDir,
@@ -30,6 +38,8 @@ import {
 } from "../apps/web/src/lib/paper-artifacts";
 import { summarizeReplicationGapManifest } from "../apps/web/src/lib/replication-gap-manifest";
 import { summarizeArtifactGapCoverage } from "../apps/web/src/lib/artifact-gap-coverage";
+import { gateUnitVerdict } from "../apps/web/src/lib/replication-gates";
+import type { BundleUnitInput } from "../apps/web/src/lib/replication-bundle";
 
 const DATABASE_URL =
   process.env.DATABASE_URL ??
@@ -61,31 +71,6 @@ const CODEX_DONTO_STATEMENT_LIMIT = boundedInt(
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-interface ReplicationUnitRow {
-  id: string;
-  paper_id: string;
-  claim_iri: string;
-  source_statement_ids: string[];
-  domain: ReplicationUnit["domain"];
-  unit_type: ReplicationUnitType;
-  claim_text: string;
-  evidence_quotes: string[];
-  hypothesis: string;
-  expected_outcome: string;
-  falsification_criteria: string[];
-  required_artifacts: ReplicationUnit["requiredArtifacts"];
-  datasets: ReplicationUnit["datasets"];
-  methods: ReplicationUnit["methods"];
-  metrics: ReplicationUnit["metrics"];
-  baselines: ReplicationUnit["baselines"];
-  parameters: ReplicationUnit["parameters"];
-  compute_budget: ReplicationUnit["computeBudget"];
-  verifier_candidates: string[];
-  planner: ReplicationUnit["planner"];
-  state: ReplicationUnit["state"];
-  blockers: ReplicationUnit["blockers"];
-}
 
 interface CodexUnitResult {
   replication_unit_id?: string;
@@ -123,6 +108,8 @@ const COMMON_JOB_ARTIFACTS = [
   "supplemental-artifacts.json",
   "artifact-gap-manifest.json",
   "artifact-gap-coverage.json",
+  "correspondence-manifest.json",
+  "replication-bundle.json",
 ];
 
 const DOSSIER_SNAPSHOT_VERSION =
@@ -149,6 +136,8 @@ const DOSSIER_CORE_FILES = [
   { relativePath: "codex-stderr.log", phase: "runtime", required: false },
   { relativePath: "progress.json", phase: "runtime", required: false },
   { relativePath: "results.json", phase: "output", required: true },
+  { relativePath: "correspondence-manifest.json", phase: "output", required: true },
+  { relativePath: "replication-bundle.json", phase: "output", required: true },
   {
     relativePath: "experiments/full_paper_replication/coverage_report.json",
     phase: "output",
@@ -412,33 +401,6 @@ function boundedInt(value: string, fallback: number, max: number) {
   return Math.min(parsed, max);
 }
 
-function rowToUnit(row: ReplicationUnitRow): ReplicationUnit {
-  return {
-    id: row.id,
-    paperId: row.paper_id,
-    claimIri: row.claim_iri,
-    sourceStatementIds: row.source_statement_ids ?? [],
-    domain: row.domain,
-    unitType: row.unit_type,
-    claimText: row.claim_text,
-    evidenceQuotes: row.evidence_quotes ?? [],
-    hypothesis: row.hypothesis,
-    expectedOutcome: row.expected_outcome,
-    falsificationCriteria: row.falsification_criteria ?? [],
-    requiredArtifacts: row.required_artifacts ?? [],
-    datasets: row.datasets ?? [],
-    methods: row.methods ?? [],
-    metrics: row.metrics ?? [],
-    baselines: row.baselines ?? [],
-    parameters: row.parameters ?? [],
-    computeBudget: row.compute_budget,
-    verifierCandidates: row.verifier_candidates ?? [],
-    planner: row.planner,
-    state: row.state,
-    blockers: row.blockers ?? [],
-  };
-}
-
 function objectRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -466,29 +428,6 @@ function chooseSimulationSnapshotForGapCoverage(
 function claimIdForUnit(unit: ReplicationUnit) {
   const id = unit.sourceStatementIds[0];
   return id && UUID_RE.test(id) ? id : null;
-}
-
-function canonicalVerdict(value: unknown) {
-  const verdict = typeof value === "string" ? value : "inconclusive";
-  if (
-    verdict === "reproduced" ||
-    verdict === "contradicted" ||
-    verdict === "fragile" ||
-    verdict === "inconclusive" ||
-    verdict === "not_applicable" ||
-    verdict === "vacuous" ||
-    verdict === "system_error" ||
-    verdict === "untested"
-  ) {
-    return verdict;
-  }
-  return "inconclusive";
-}
-
-function canonicalEvidenceMode(value: unknown) {
-  return typeof value === "string" && value.length > 0
-    ? value
-    : "proxy_simulation";
 }
 
 function buildPrompt(workdir: string) {
@@ -568,7 +507,50 @@ Also write experiments/full_paper_replication/coverage_report.json with:
   "blocked_reasons": {}
 }
 
-results.json must include one unit entry for every replication unit. Keep the result scientifically conservative. The target is faithful full-paper replication, not a quick demo.`;
+results.json must include one unit entry for every replication unit. Keep the result scientifically conservative. The target is faithful full-paper replication, not a quick demo.
+
+CORRESPONDENCE CONTRACT (required — verdicts do not count without it):
+
+The single most common silent failure in agent-driven replication is running clean code that simulates a DIFFERENT system than the paper describes (changed operator ordering, initial/boundary conditions, discretization, units, random process, stopping rule, tolerance, or an undeclared proxy relation). To make claim-to-simulation correspondence auditable, also write ${CORRESPONDENCE_MANIFEST_FILENAME} before exiting:
+
+{
+  "schema_version": "toiletpaper.correspondence-manifest.v1",
+  "receipts": [
+    {
+      "unit_id": "string (the replication_unit_id)",
+      "binds": {
+        "claim_iri": "string",
+        "source_statement_ids": ["ONLY ids that appear on the unit — never invent bindings"],
+        "evidence_spans": ["verbatim quote(s) the check operationalizes"]
+      },
+      "system": {
+        "description": "what system your code ACTUALLY implements (not what the paper describes)",
+        "equations": ["governing equations/relations as implemented"],
+        "operator_ordering": ["update/operator order when it affects semantics"],
+        "initial_conditions": "string", "boundary_conditions": "string",
+        "discretization": "string", "units_system": "string",
+        "random_process": { "kind": "none" | "seeded" | "unseeded", "seeds": [] },
+        "stopping_rule": "string",
+        "tolerances": [{ "name": "string", "value": "string", "kind": "absolute|relative|qualitative" }],
+        "parameters": [{ "name": "string", "value": "string", "unit": "string" }]
+      },
+      "proxy": { "is_proxy": boolean, "relation": "what relation the proxy bears to the original system", "gap": "what it deliberately does not capture" },
+      "falsifier": { "description": "smallest input/witness that would distinguish the paper's intended semantics from your implementation" },
+      "code": [{ "path": "workdir-relative path to the script(s) that ran" }],
+      "resolved_blockers": [{ "code": "needs-artifact-url", "resolution": "how it was resolved", "artifacts": ["staged path"] }],
+      "declared_by": "codex"
+    }
+  ]
+}
+
+Rules for receipts:
+- One receipt per unit you executed (any evidence_mode except insufficient). Blocked/insufficient units need no receipt — their honest state IS the missing evidence.
+- For proxy_simulation results, "proxy": {"is_proxy": true, "relation": ...} is mandatory.
+- If a stochastic computation ran, declare the seeds you pinned, or "kind": "unseeded" honestly.
+- If you used a staged supplemental artifact to resolve a blocker, record it in resolved_blockers.
+- Never restate the paper's description as the receipt: describe the system your code implements, so a reviewer can diff the two.
+
+A unit result without a valid receipt will have its verdict demoted to untested at ingest — writing an honest receipt is how your work gets counted.`;
 }
 
 async function runProcess(
@@ -1183,6 +1165,20 @@ async function main() {
     let dontoLinksCreated = 0;
     let resultStatus = timedOut ? "partial" : "succeeded";
 
+    // PRD-010 gate 3 input: the agent-declared correspondence manifest.
+    const correspondence = await loadCorrespondenceManifest(workdir);
+    enqueueLog("correspondence_manifest_loaded", {
+      jobId,
+      path: correspondence.path,
+      exists: correspondence.exists,
+      receiptCount: correspondence.receiptCount,
+      unparseableEntries: correspondence.unparseableEntries,
+      error: correspondence.error,
+    });
+
+    const bundleUnits: BundleUnitInput[] = [];
+    let demotedCount = 0;
+
     if (existsSync(resultsPath)) {
       const parsed = JSON.parse(await readFile(resultsPath, "utf8")) as {
         status?: string;
@@ -1201,12 +1197,41 @@ async function main() {
         const unit = byId.get(unitId);
         if (!unit) continue;
         seenUnitIds.add(unit.id);
-        const claimId = claimIdForUnit(unit);
-        if (!claimId) continue;
-        const verdict = canonicalVerdict(result.verdict);
         const reason = result.reason ?? "Codex full-paper replication result.";
         const artifacts = mergedArtifacts(result.artifacts, workdir);
-        const [inserted] = await sql<{ id: string }[]>`
+
+        // PRD-010 gate order: extraction → compilation → correspondence →
+        // execution → verdict. Signal verdicts failing any gate are demoted
+        // to untested with the raw verdict kept as ungated_verdict.
+        const rawReceipt = correspondence.receipts.get(unit.id) ?? null;
+        const receipt = rawReceipt
+          ? await resolveReceiptCodeDigests(rawReceipt, workdir)
+          : null;
+        const gated = gateUnitVerdict({
+          unit,
+          rawVerdict: result.verdict,
+          rawEvidenceMode: result.evidence_mode,
+          receipt,
+          executionEvidence: {
+            measurements: result.measurements ?? null,
+            reportedArtifacts: result.artifacts ?? null,
+          },
+        });
+        if (gated.demoted) {
+          demotedCount += 1;
+          enqueueLog("verdict_demoted", {
+            jobId,
+            replicationUnitId: unit.id,
+            ungatedVerdict: gated.ungatedVerdict,
+            gateFailures: gated.gateFailures,
+          });
+        }
+        const verdict = gated.verdict;
+
+        const claimId = claimIdForUnit(unit);
+        let simulationId: string | null = null;
+        if (claimId) {
+          const [inserted] = await sql<{ id: string }[]>`
           INSERT INTO simulations (
             claim_id,
             method,
@@ -1234,9 +1259,11 @@ async function main() {
               unitType: unit.unitType,
               claimIri: unit.claimIri,
               sourceStatementIds: unit.sourceStatementIds,
+              gates: gated.gates,
+              correspondenceReceipt: receipt,
             })},
             ${verdict},
-            ${canonicalEvidenceMode(result.evidence_mode)},
+            ${gated.evidenceMode},
             ${result.limitations ?? []},
             ${sql.json({
               codex_full_paper: true,
@@ -1249,44 +1276,67 @@ async function main() {
               domain: unit.domain,
               unit_type: unit.unitType,
               original_verdict: verdict,
+              gated: true,
+              demoted: gated.demoted,
+              // NOT original_verdict: normalizeVerdict() would re-promote it.
+              ungated_verdict: gated.ungatedVerdict,
+              gate_failures: gated.gateFailures,
+              claim_ceiling: gated.claimCeiling,
+              correspondence_receipt_present: receipt !== null,
+              correspondence_receipt_valid:
+                gated.gates.find((gate) => gate.gate === "correspondence")
+                  ?.status === "passed",
             })}
           )
           RETURNING id::text
         `;
-        if (dontoSql) {
-          try {
-            const provenance = await recordSimulationResultProvenance(dontoSql, {
-              paperId,
-              claimIri: unit.claimIri,
-              verdict,
-              reason,
-              source: "codex-full-paper",
-              jobId,
-              simulationId: inserted.id,
-              replicationUnitId: unit.id,
-              sourceStatementIds: unit.sourceStatementIds,
-              confidence: result.confidence ?? null,
-              evidenceMode: canonicalEvidenceMode(result.evidence_mode),
-              limitations: result.limitations ?? [],
-              measurements: result.measurements ?? null,
-              artifacts,
-              workdir,
-              resultStatus: result.status ?? resultStatus,
-              unitType: unit.unitType,
-            });
-            dontoStatements += provenance.statementIds.length;
-            dontoLinksCreated += provenance.linksCreated;
-          } catch (e) {
-            enqueueLog("donto_simulation_provenance_failed", {
-              jobId,
-              replicationUnitId: unit.id,
-              simulationId: inserted.id,
-              error: e instanceof Error ? e.message : String(e),
-            });
+          simulationId = inserted.id;
+          if (dontoSql) {
+            try {
+              const provenance = await recordSimulationResultProvenance(dontoSql, {
+                paperId,
+                claimIri: unit.claimIri,
+                verdict,
+                reason,
+                source: "codex-full-paper",
+                jobId,
+                simulationId: inserted.id,
+                replicationUnitId: unit.id,
+                sourceStatementIds: unit.sourceStatementIds,
+                confidence: result.confidence ?? null,
+                evidenceMode: gated.evidenceMode,
+                limitations: result.limitations ?? [],
+                measurements: result.measurements ?? null,
+                artifacts,
+                workdir,
+                resultStatus: result.status ?? resultStatus,
+                unitType: unit.unitType,
+              });
+              dontoStatements += provenance.statementIds.length;
+              dontoLinksCreated += provenance.linksCreated;
+            } catch (e) {
+              enqueueLog("donto_simulation_provenance_failed", {
+                jobId,
+                replicationUnitId: unit.id,
+                simulationId: inserted.id,
+                error: e instanceof Error ? e.message : String(e),
+              });
+            }
           }
+          ingested += 1;
+          if (verdict === "system_error") failed += 1;
         }
-        ingested += 1;
-        if (verdict === "system_error") failed += 1;
+
+        bundleUnits.push({
+          unit,
+          gated,
+          receipt,
+          confidence: result.confidence ?? null,
+          reason,
+          simulationId,
+          artifacts: artifacts.map((path) => ({ path, sha256: null })),
+          missingResult: false,
+        });
       }
 
       const missingUnitIds = units
@@ -1303,10 +1353,50 @@ async function main() {
           missingUnitIds: missingUnitIds.slice(0, 200),
         });
       }
+
+      // Coverage gaps must never read as reproduced: every unit without a
+      // result enters the bundle as an explicit untested entry.
+      for (const unit of units) {
+        if (seenUnitIds.has(unit.id)) continue;
+        bundleUnits.push({
+          unit,
+          gated: gateUnitVerdict({
+            unit,
+            rawVerdict: undefined,
+            rawEvidenceMode: undefined,
+            receipt: null,
+            executionEvidence: { measurements: null, reportedArtifacts: null },
+          }),
+          receipt: null,
+          confidence: null,
+          reason: "no result was returned for this unit",
+          simulationId: null,
+          artifacts: [],
+          missingResult: true,
+        });
+      }
     } else {
       failed = units.length;
       resultStatus = timedOut ? "partial" : "failed";
       enqueueLog("codex_results_missing", { resultsPath, exitCode, stderrTail });
+      for (const unit of units) {
+        bundleUnits.push({
+          unit,
+          gated: gateUnitVerdict({
+            unit,
+            rawVerdict: undefined,
+            rawEvidenceMode: undefined,
+            receipt: null,
+            executionEvidence: { measurements: null, reportedArtifacts: null },
+          }),
+          receipt: null,
+          confidence: null,
+          reason: "results.json was never written by the replication agent",
+          simulationId: null,
+          artifacts: [],
+          missingResult: true,
+        });
+      }
     }
 
     const finishedAt = new Date();
@@ -1328,6 +1418,76 @@ async function main() {
           updated_at = NOW()
       WHERE id = ${paperId}
     `;
+    // PRD-010: write the content-addressed per-paper replication bundle —
+    // the aggregation artifact a reviewer consumes. Built BEFORE the dossier
+    // snapshot so the snapshot can hash the bundle file itself.
+    try {
+      const bundleFileList = DOSSIER_CORE_FILES.filter(
+        (file) => file.relativePath !== REPLICATION_BUNDLE_FILENAME,
+      ).map((file) => ({
+        relativePath: file.relativePath,
+        phase: file.phase,
+      }));
+      const bundleFiles = await describeBundleFiles({
+        workdir,
+        files: bundleFileList,
+        maxBytes: DOSSIER_HASH_MAX_BYTES,
+      });
+      const sourceSha256 =
+        bundleFiles.find(
+          (file) => file.relativePath === source.stagedFilename,
+        )?.sha256 ??
+        (source.stagedFilename
+          ? (
+              await describeBundleFiles({
+                workdir,
+                files: [{ relativePath: source.stagedFilename, phase: "input" }],
+                maxBytes: DOSSIER_HASH_MAX_BYTES,
+              })
+            )[0]?.sha256 ?? null
+          : null);
+      const bundleResult = await writeReplicationBundle({
+        sql,
+        workdir,
+        build: {
+          paper: {
+            id: paperId,
+            title: typeof paper.title === "string" ? paper.title : null,
+            doi: typeof paper.doi === "string" ? paper.doi : null,
+            arxivId: typeof paper.arxiv_id === "string" ? paper.arxiv_id : null,
+            sourceSha256,
+          },
+          job: {
+            id: jobId,
+            resultStatus,
+            exitCode,
+            timedOut,
+          },
+          units: bundleUnits,
+          dontoStatementCount: dontoStatementManifest.count,
+          files: bundleFiles,
+        },
+      });
+      enqueueLog("replication_bundle_written", {
+        jobId,
+        path: bundleResult.bundlePath,
+        artifactId: bundleResult.bundle.manifest.artifactId,
+        sha256: bundleResult.bundle.sha256,
+        unitCount: bundleResult.bundle.manifest.coverage.unitCount,
+        demotedSignalCount:
+          bundleResult.bundle.manifest.coverage.verdicts.demotedSignalCount,
+        missingResultUnits:
+          bundleResult.bundle.manifest.coverage.missingResultUnitIds.length,
+        dbInsert: bundleResult.dbInsert,
+        dbError: bundleResult.dbError,
+      });
+    } catch (e) {
+      enqueueLog("replication_bundle_failed", {
+        jobId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+
     const dossierSnapshotPath = join(workdir, "replication-dossier-snapshot.json");
     try {
       const dossierSnapshot = await writeFrozenDossierSnapshot({
@@ -1364,6 +1524,7 @@ async function main() {
       resultStatus,
       ingested,
       failed,
+      demoted: demotedCount,
       dontoStatements,
       dontoLinksCreated,
       workdir,
