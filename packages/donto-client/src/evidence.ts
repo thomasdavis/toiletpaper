@@ -1,3 +1,5 @@
+import { dontosrvHeaders } from "./auth";
+
 // ── Documents ───────────────────────────────────────────────────────
 
 export interface RegisterDocumentInput {
@@ -19,7 +21,7 @@ export async function registerDocument(
 ): Promise<RegisterDocumentResponse> {
   const r = await fetch(`${baseUrl}/documents/register`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -47,7 +49,7 @@ export async function createRevision(
 ): Promise<CreateRevisionResponse> {
   const r = await fetch(`${baseUrl}/documents/revision`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -77,7 +79,7 @@ export async function registerAgent(
 ): Promise<RegisterAgentResponse> {
   const r = await fetch(`${baseUrl}/agents/register`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -103,7 +105,7 @@ export async function bindAgent(
 ): Promise<BindAgentResponse> {
   const r = await fetch(`${baseUrl}/agents/bind`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -131,7 +133,7 @@ export async function linkSpan(
 ): Promise<LinkSpanResponse> {
   const r = await fetch(`${baseUrl}/evidence/link/span`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -191,7 +193,7 @@ export async function assertArgument(
 ): Promise<AssertArgumentResponse> {
   const r = await fetch(`${baseUrl}/arguments/assert`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -271,7 +273,7 @@ export async function emitObligation(
 ): Promise<EmitObligationResponse> {
   const r = await fetch(`${baseUrl}/obligations/emit`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -297,7 +299,7 @@ export async function resolveObligation(
 ): Promise<ResolveObligationResponse> {
   const r = await fetch(`${baseUrl}/obligations/resolve`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)
@@ -332,7 +334,7 @@ export async function openObligations(
 ): Promise<OpenObligationsResponse> {
   const r = await fetch(`${baseUrl}/obligations/open`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify(input),
   });
   if (!r.ok)

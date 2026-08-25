@@ -187,8 +187,12 @@ export async function extractClaimsFromText(
   const attempts = Math.max(1, extractorRetryAttempts());
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
+      // OpenAI gpt-5 family: chat completions reject `max_tokens` (use
+      // `max_completion_tokens`) and only support the default temperature.
+      const model = extractorModel();
+      const isReasoningFamily = /^(gpt-5|o\d)/i.test(model);
       response = await client.chat.completions.create({
-        model: extractorModel(),
+        model,
         messages: [
           { role: "system", content: `${EXTRACTION_PROMPT}\n\nYou must output strict JSON only.` },
           {
@@ -197,8 +201,9 @@ export async function extractClaimsFromText(
           },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.1,
-        max_tokens: extractorMaxTokens(),
+        ...(isReasoningFamily
+          ? { max_completion_tokens: extractorMaxTokens() }
+          : { temperature: 0.1, max_tokens: extractorMaxTokens() }),
       });
       break;
     } catch (error) {

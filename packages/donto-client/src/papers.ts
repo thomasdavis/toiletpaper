@@ -1,3 +1,5 @@
+import { dontosrvHeaders } from "./auth";
+
 import { DONTOSRV_URL, ensureContext, assertBatch } from "./index";
 
 export const TP_CONTEXT = "tp:papers";
@@ -17,7 +19,7 @@ export async function registerPaperDocument(
 ) {
   const r = await fetch(`${DONTOSRV_URL}/documents/register`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: dontosrvHeaders(),
     body: JSON.stringify({
       iri: paperIri,
       media_type: "application/pdf",
